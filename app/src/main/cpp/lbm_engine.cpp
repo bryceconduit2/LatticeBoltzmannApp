@@ -174,7 +174,8 @@ inline uint32_t heatMapColor(float value) {
     } else { // Yellow -> Red
         r = 1.0f; g = 1.0f - 4.0f * (value - 0.75f); b = 0.0f;
     }
-    return 0xFF000000 | (static_cast<uint32_t>(r * 255.0f) << 16) | (static_cast<uint32_t>(g * 255.0f) << 8) | static_cast<uint32_t>(b * 255.0f);
+    // Android Bitmap ARGB_8888 is often RGBA in memory (0xAABBGGRR as uint32_t)
+    return 0xFF000000 | (static_cast<uint32_t>(b * 255.0f) << 16) | (static_cast<uint32_t>(g * 255.0f) << 8) | static_cast<uint32_t>(r * 255.0f);
 }
 
 extern "C" JNIEXPORT jlong JNICALL

@@ -1,3 +1,5 @@
 # ninja log v5
 0	1590	8069533372113179	CMakeFiles/latticeboltzmann.dir/lbm_engine.cpp.o	c510742e143675b5
 1600	1797	8069533374113696	C:/Users/bryce/AndroidStudioProjects/LatticeBoltzmannApp/app/build/intermediates/cxx/Debug/17w606e2/obj/x86_64/liblatticeboltzmann.so	6d5600044e62fdd3
+8	1640	8069542647125284	CMakeFiles/latticeboltzmann.dir/lbm_engine.cpp.o	c510742e143675b5
+1641	1930	8069542649987062	C:/Users/bryce/AndroidStudioProjects/LatticeBoltzmannApp/app/build/intermediates/cxx/Debug/17w606e2/obj/x86_64/liblatticeboltzmann.so	6d5600044e62fdd3
