@@ -157,6 +157,13 @@ class WindTunnelView @JvmOverloads constructor(
                     )
                 }
 
+                val currentVel = engine.getInletVelocity()
+                val dragN = engine.getDragForce()
+                
+                canvas.drawText(String.format(Locale.US, "Velocity: %.1f m/s", currentVel), 30f, 80f, textPaint)
+                canvas.drawText(String.format(Locale.US, "Drag: %.2f N", dragN), 30f, 140f, textPaint)
+                canvas.drawText("Tunnel: 1.0m x 0.5m x 1.0m", 30f, 200f, textPaint)
+
                 drawScaleBar(canvas)
                 
                 holder.unlockCanvasAndPost(canvas)
@@ -190,17 +197,18 @@ class WindTunnelView @JvmOverloads constructor(
         canvas.drawRect(left, top, right, bottom, previewPaint)
 
         // Draw Labels
-        val maxVel = engine.getInletVelocity() * 1.8f
+        // Max vel for the heatmap is 1.8x inlet
+        val maxVelPhys = engine.getInletVelocity() * 1.8f
         
         // Left label (0)
         canvas.drawText("0.0", left, top - 15f, scaleTextPaint)
         
         // Right label (Max)
-        val maxLabel = String.format(Locale.US, "%.2f", maxVel)
+        val maxLabel = String.format(Locale.US, "%.1f m/s", maxVelPhys)
         canvas.drawText(maxLabel, right, top - 15f, scaleTextPaint)
         
         // Unit Label
-        canvas.drawText("Air Velocity (rel)", (left + right) / 2f, top - 15f, scaleTextPaint)
+        canvas.drawText("Air Velocity", (left + right) / 2f, top - 15f, scaleTextPaint)
     }
 
     override fun surfaceCreated(holder: SurfaceHolder) {

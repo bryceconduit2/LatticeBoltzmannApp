@@ -13,6 +13,14 @@ struct LBMEngine {
     const float cs2 = 1.0f / 3.0f;
     const float SmagorinskyConstant = 0.16f;
 
+    // Physical Constants
+    const float dx = 0.0025f;     // 0.5m height / 200 cells (also 1.0m length / 400 cells)
+    const float dt = 0.00002f;    // Time step to keep u_lb stable at high speed
+    const float rhoAir = 1.225f;  // kg/m^3
+    const float nuAir = 1.5e-5f;  // m^2/s (kinematic viscosity)
+
+    float dragForceNewtons = 0.0f;
+
     std::vector<float> f;
     std::vector<float> fNew;
     std::vector<bool> obstacles;
@@ -60,10 +68,18 @@ struct LBMEngine {
         // 0. Smooth inlet velocity to prevent numerical shocks
         uInlet = uInlet * 0.99f + uInletTarget * 0.01f;
 
+        // Calculate physical omega based on air viscosity
+        float nuLB = nuAir * dt / (dx * dx);
+        omega = 1.0f / (3.0f * nuLB + 0.5f);
+
+        // Reset drag counter for this step
+        float localDragX = 0.0f;
+
         // 1. Streaming (Pull Method for Cache Efficiency)
-#pragma omp parallel for default(none) shared(fNew, f, height, width, cxs, cys)
+#pragma omp parallel for default(none) shared(fNew, f, height, width, cxs, cys, opposite) reduction(+:localDragX)
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
+                int fBase = (y * width + x) * 9;
                 for (int i = 0; i < 9; i++) {
                     int nx = x - cxs[i];
                     int ny = y - cys[i];
@@ -71,10 +87,24 @@ struct LBMEngine {
                     if (nx < 0) nx = width - 1; else if (nx >= width) nx = 0;
                     if (ny < 0) ny = height - 1; else if (ny >= height) ny = 0;
 
-                    fNew[(y * width + x) * 9 + i] = f[(ny * width + nx) * 9 + i];
+                    int sourceIdx = (ny * width + nx) * 9 + i;
+
+                    // Momentum Exchange for Drag Calculation
+                    if (obstacles[y * width + x] && !obstacles[ny * width + nx]) {
+                        // Link from fluid (nx, ny) to solid (x, y)
+                        // The particle that would have streamed into the solid bounces back
+                        float f_to_solid = f[sourceIdx];
+                        localDragX += f_to_solid * static_cast<float>(cxs[i]);
+                    }
+
+                    fNew[fBase + i] = f[sourceIdx];
                 }
             }
         }
+
+        // Convert lattice force to Newtons (assuming 1m depth)
+        // F_phys = F_lb * rho * (dx^3 / dt^2)
+        dragForceNewtons = localDragX * rhoAir * (dx * dx * dx) / (dt * dt);
 
         // 2. Collision with Regularization & Smagorinsky
 #pragma omp parallel for default(none) shared(f, fNew, obstacles, velocityMag, width, height, uInlet, cs2, SmagorinskyConstant, omega, weights, cxs, cys, opposite)
@@ -296,11 +326,13 @@ Java_com_example_latticeboltzmann_NativeLBMEngine_resetSimulationNative(
 
 extern "C" JNIEXPORT void JNICALL
 Java_com_example_latticeboltzmann_NativeLBMEngine_setInletVelocityNative(
-        JNIEnv *env, jobject thiz, jlong ptr, jfloat velocity) {
+        JNIEnv *env, jobject thiz, jlong ptr, jfloat velocityPhys) {
 
     auto* engine = reinterpret_cast<LBMEngine*>(ptr);
-    // Limit velocity for numerical stability (Mach number should remain low)
-    engine->uInletTarget = std::max(0.0f, std::min(0.4f, velocity));
+    // Convert physical velocity (m/s) to lattice velocity
+    float uInletLB = velocityPhys * engine->dt / engine->dx;
+    // Limit velocity for numerical stability
+    engine->uInletTarget = std::max(0.0f, std::min(0.45f, uInletLB));
 }
 
 extern "C" JNIEXPORT jfloat JNICALL
@@ -308,5 +340,14 @@ Java_com_example_latticeboltzmann_NativeLBMEngine_getInletVelocityNative(
         JNIEnv *env, jobject thiz, jlong ptr) {
 
     auto* engine = reinterpret_cast<LBMEngine*>(ptr);
-    return engine->uInlet;
+    // Convert back to physical m/s for UI
+    return engine->uInlet * engine->dx / engine->dt;
+}
+
+extern "C" JNIEXPORT jfloat JNICALL
+Java_com_example_latticeboltzmann_NativeLBMEngine_getDragForceNative(
+        JNIEnv *env, jobject thiz, jlong ptr) {
+
+    auto* engine = reinterpret_cast<LBMEngine*>(ptr);
+    return engine->dragForceNewtons;
 }

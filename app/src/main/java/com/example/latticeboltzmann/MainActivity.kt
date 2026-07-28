@@ -22,8 +22,8 @@ class MainActivity : AppCompatActivity() {
         val sbAirflowSpeed = findViewById<android.widget.SeekBar>(R.id.sbAirflowSpeed)
         sbAirflowSpeed.setOnSeekBarChangeListener(object : android.widget.SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: android.widget.SeekBar?, progress: Int, fromUser: Boolean) {
-                // Map progress (0-200) to velocity (0.0 to 0.40)
-                val velocity = progress / 500.0f
+                // Map progress (0-200) to physical velocity (0.0 to 50.0 m/s)
+                val velocity = progress / 4.0f
                 windTunnelView.setAirflowSpeed(velocity)
             }
 

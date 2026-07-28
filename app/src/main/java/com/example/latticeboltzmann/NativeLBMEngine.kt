@@ -56,11 +56,16 @@ class NativeLBMEngine(val width: Int, val height: Int) {
         return if (enginePtr != 0L) getInletVelocityNative(enginePtr) else 0.0f
     }
 
+    fun getDragForce(): Float {
+        return if (enginePtr != 0L) getDragForceNative(enginePtr) else 0.0f
+    }
+
     private external fun initEngine(width: Int, height: Int): Long
     private external fun stepAndRenderNative(ptr: Long, bitmap: Bitmap, steps: Int)
     private external fun addObstacleNative(ptr: Long, cx: Int, cy: Int, radius: Int)
     private external fun resetSimulationNative(ptr: Long)
     private external fun setInletVelocityNative(ptr: Long, velocity: Float)
     private external fun getInletVelocityNative(ptr: Long): Float
+    private external fun getDragForceNative(ptr: Long): Float
     private external fun destroyEngine(ptr: Long)
 }
