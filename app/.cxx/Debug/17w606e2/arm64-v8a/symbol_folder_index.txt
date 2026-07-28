@@ -1,0 +1,1 @@
+C:\Users\bryce\AndroidStudioProjects\LatticeBoltzmann\app\build\intermediates\cxx\Debug\17w606e2\obj\arm64-v8a

@@ -1,0 +1,20 @@
+{
+  "buildFiles": [
+    "C:\\Users\\bryce\\AndroidStudioProjects\\LatticeBoltzmann\\app\\src\\main\\cpp\\CMakeLists.txt"
+  ],
+  "cleanCommandsComponents": [
+    [
+      "C:\\Users\\bryce\\AppData\\Local\\Android\\Sdk\\cmake\\3.22.1\\bin\\ninja.exe",
+      "-C",
+      "C:\\Users\\bryce\\AndroidStudioProjects\\LatticeBoltzmann\\app\\.cxx\\Debug\\245m1o1j\\x86_64",
+      "clean"
+    ]
+  ],
+  "buildTargetsCommandComponents": [
+    "C:\\Users\\bryce\\AppData\\Local\\Android\\Sdk\\cmake\\3.22.1\\bin\\ninja.exe",
+    "-C",
+    "C:\\Users\\bryce\\AndroidStudioProjects\\LatticeBoltzmann\\app\\.cxx\\Debug\\245m1o1j\\x86_64",
+    "{LIST_OF_TARGETS_TO_BUILD}"
+  ],
+  "libraries": {}
+}

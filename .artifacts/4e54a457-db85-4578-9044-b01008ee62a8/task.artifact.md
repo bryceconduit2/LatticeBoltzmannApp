@@ -1,0 +1,6 @@
+- [x] Identify sync error (Incompatible Gradle JVM version)
+- [x] Upgrade Gradle wrapper to 8.10.2
+- [x] Verify successful sync
+- [ ] Upgrade AGP to 8.7.2 in root `build.gradle.kts`
+- [ ] Upgrade Kotlin to 1.9.24 or 2.0.21
+- [ ] Re-verify sync and check `settings.gradle.kts` for any remaining warnings

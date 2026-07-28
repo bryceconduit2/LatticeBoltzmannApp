@@ -1,0 +1,27 @@
+{
+  "buildFiles": [
+    "C:\\Users\\bryce\\AndroidStudioProjects\\LatticeBoltzmann\\app\\src\\main\\cpp\\CMakeLists.txt"
+  ],
+  "cleanCommandsComponents": [
+    [
+      "C:\\Users\\bryce\\AppData\\Local\\Android\\Sdk\\cmake\\3.22.1\\bin\\ninja.exe",
+      "-C",
+      "C:\\Users\\bryce\\AndroidStudioProjects\\LatticeBoltzmann\\app\\.cxx\\Debug\\17w606e2\\x86_64",
+      "clean"
+    ]
+  ],
+  "buildTargetsCommandComponents": [
+    "C:\\Users\\bryce\\AppData\\Local\\Android\\Sdk\\cmake\\3.22.1\\bin\\ninja.exe",
+    "-C",
+    "C:\\Users\\bryce\\AndroidStudioProjects\\LatticeBoltzmann\\app\\.cxx\\Debug\\17w606e2\\x86_64",
+    "{LIST_OF_TARGETS_TO_BUILD}"
+  ],
+  "libraries": {
+    "latticeboltzmann::@6890427a1f51a3e7e1df": {
+      "artifactName": "latticeboltzmann",
+      "abi": "x86_64",
+      "output": "C:\\Users\\bryce\\AndroidStudioProjects\\LatticeBoltzmann\\app\\build\\intermediates\\cxx\\Debug\\17w606e2\\obj\\x86_64\\liblatticeboltzmann.so",
+      "runtimeFiles": []
+    }
+  }
+}
