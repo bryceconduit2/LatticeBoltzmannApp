@@ -1,15 +1,5 @@
 # ninja log v5
-1782	1973	8069431832949012	C:/Users/bryce/AndroidStudioProjects/LatticeBoltzmann/app/build/intermediates/cxx/Debug/17w606e2/obj/arm64-v8a/liblatticeboltzmann.so	c455b169f4d64588
-8	1781	8069431831188196	CMakeFiles/latticeboltzmann.dir/lbm_engine.cpp.o	c998322fa42f85fc
-9	2761	8069433938828381	CMakeFiles/latticeboltzmann.dir/lbm_engine.cpp.o	763d8fd4d84d87e6
-2762	3104	8069433942299327	C:/Users/bryce/AndroidStudioProjects/LatticeBoltzmann/app/build/intermediates/cxx/Debug/17w606e2/obj/arm64-v8a/liblatticeboltzmann.so	fc0326f9368ee1a9
-9	2317	8069471369882565	CMakeFiles/latticeboltzmann.dir/lbm_engine.cpp.o	763d8fd4d84d87e6
-2318	2678	8069471373418296	C:/Users/bryce/AndroidStudioProjects/LatticeBoltzmann/app/build/intermediates/cxx/Debug/17w606e2/obj/arm64-v8a/liblatticeboltzmann.so	fc0326f9368ee1a9
-11	4894	8069480154095542	CMakeFiles/latticeboltzmann.dir/lbm_engine.cpp.o	763d8fd4d84d87e6
-4895	5421	8069480159595448	C:/Users/bryce/AndroidStudioProjects/LatticeBoltzmann/app/build/intermediates/cxx/Debug/17w606e2/obj/arm64-v8a/liblatticeboltzmann.so	fc0326f9368ee1a9
-10	2631	8069515120910215	CMakeFiles/latticeboltzmann.dir/lbm_engine.cpp.o	763d8fd4d84d87e6
-2632	2986	8069515124529562	C:/Users/bryce/AndroidStudioProjects/LatticeBoltzmann/app/build/intermediates/cxx/Debug/17w606e2/obj/arm64-v8a/liblatticeboltzmann.so	fc0326f9368ee1a9
-8	1526	8069518449297144	CMakeFiles/latticeboltzmann.dir/lbm_engine.cpp.o	763d8fd4d84d87e6
-1527	1694	8069518450998320	C:/Users/bryce/AndroidStudioProjects/LatticeBoltzmann/app/build/intermediates/cxx/Debug/17w606e2/obj/arm64-v8a/liblatticeboltzmann.so	fc0326f9368ee1a9
-10	2159	8069523411880972	CMakeFiles/latticeboltzmann.dir/lbm_engine.cpp.o	763d8fd4d84d87e6
-2160	2484	8069523415167856	C:/Users/bryce/AndroidStudioProjects/LatticeBoltzmann/app/build/intermediates/cxx/Debug/17w606e2/obj/arm64-v8a/liblatticeboltzmann.so	fc0326f9368ee1a9
+1	2803	8069528459747288	CMakeFiles/latticeboltzmann.dir/lbm_engine.cpp.o	ab95eacf1913bdec
+2814	3013	8069528461927974	C:/Users/bryce/AndroidStudioProjects/LatticeBoltzmannApp/app/build/intermediates/cxx/Debug/17w606e2/obj/arm64-v8a/liblatticeboltzmann.so	2d2419dc6b8c84a8
+9	1957	8069533352613421	CMakeFiles/latticeboltzmann.dir/lbm_engine.cpp.o	ab95eacf1913bdec
+1958	2247	8069533355450247	C:/Users/bryce/AndroidStudioProjects/LatticeBoltzmannApp/app/build/intermediates/cxx/Debug/17w606e2/obj/arm64-v8a/liblatticeboltzmann.so	2d2419dc6b8c84a8

@@ -2,7 +2,7 @@
 	"artifacts" : 
 	[
 		{
-			"path" : "C:/Users/bryce/AndroidStudioProjects/LatticeBoltzmann/app/build/intermediates/cxx/Debug/17w606e2/obj/x86_64/liblatticeboltzmann.so"
+			"path" : "C:/Users/bryce/AndroidStudioProjects/LatticeBoltzmannApp/app/build/intermediates/cxx/Debug/17w606e2/obj/arm64-v8a/liblatticeboltzmann.so"
 		}
 	],
 	"backtrace" : 1,

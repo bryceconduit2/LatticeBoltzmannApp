@@ -5,10 +5,6 @@
 #ifndef LATTICEBOLTZMANN_LBM_ENGINE_H
 #define LATTICEBOLTZMANN_LBM_ENGINE_H
 
-
-class lbm_engine {
-
-};
-
+// Engine logic is implemented in lbm_engine.cpp
 
 #endif //LATTICEBOLTZMANN_LBM_ENGINE_H

@@ -39,7 +39,7 @@ struct LBMEngine {
             for (int x = 0; x < width; x++) {
                 int idx = (y * width + x) * 9;
                 for (int i = 0; i < 9; i++) {
-                    float cu = 3.0f * (cxs[i] * velocity);
+                    float cu = 3.0f * (static_cast<float>(cxs[i]) * velocity);
                     f[idx + i] = weights[i] * (1.0f + cu + 0.5f * cu * cu - usqr);
                 }
             }
@@ -58,7 +58,7 @@ struct LBMEngine {
         uInlet = uInlet * 0.99f + uInletTarget * 0.01f;
 
         // 1. Streaming (Pull Method for Cache Efficiency)
-#pragma omp parallel for schedule(static)
+#pragma omp parallel for default(none) shared(fNew, f, height, width, cxs, cys)
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
                 for (int i = 0; i < 9; i++) {
@@ -73,7 +73,7 @@ struct LBMEngine {
         }
 
         // 2. Collision with Regularization & Smagorinsky
-#pragma omp parallel for schedule(static)
+#pragma omp parallel for default(none) shared(f, fNew, obstacles, velocityMag, width, height, uInlet, cs2, SmagorinskyConstant, omega, weights, cxs, cys, opposite)
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
                 int idx = y * width + x;
@@ -89,8 +89,8 @@ struct LBMEngine {
                     for (int i = 0; i < 9; i++) {
                         float fi = fNew[fBase + i];
                         rho += fi;
-                        ux += fi * cxs[i];
-                        uy += fi * cys[i];
+                        ux += fi * static_cast<float>(cxs[i]);
+                        uy += fi * static_cast<float>(cys[i]);
                     }
 
                     // Numerical Safeguards: Clamp density
@@ -144,7 +144,7 @@ struct LBMEngine {
                     if (x > width * 0.85) {
                         float spongeStart = width * 0.85f;
                         float spongeWidth = width * 0.15f;
-                        float alpha = std::pow((x - spongeStart) / spongeWidth, 2) * 0.1f;
+                        float alpha = std::pow((static_cast<float>(x) - spongeStart) / spongeWidth, 2.0f) * 0.1f;
 
                         float uInletSqr = 1.5f * (uInlet * uInlet);
                         for (int i = 0; i < 9; i++) {
@@ -161,13 +161,20 @@ struct LBMEngine {
 
 
 
-// Fast inline heatmap mapping (Blue -> Green -> Red)
+// Fast inline heatmap mapping (Blue -> Cyan -> Green -> Yellow -> Red)
 inline uint32_t heatMapColor(float value) {
     value = std::max(0.0f, std::min(1.0f, value));
-    uint32_t r = (uint32_t)(std::max(0.0f, std::min(1.0f, 2.0f * value - 1.0f)) * 255.0f);
-    uint32_t g = (uint32_t)(std::max(0.0f, std::min(1.0f, 2.0f - 2.0f * std::abs(value - 0.5f))) * 255.0f);
-    uint32_t b = (uint32_t)(std::max(0.0f, std::min(1.0f, 1.0f - 2.0f * value)) * 255.0f);
-    return 0xFF000000 | (r << 16) | (g << 8) | b;
+    float r, g, b;
+    if (value < 0.25f) { // Blue -> Cyan
+        r = 0.0f; g = 4.0f * value; b = 1.0f;
+    } else if (value < 0.5f) { // Cyan -> Green
+        r = 0.0f; g = 1.0f; b = 1.0f - 4.0f * (value - 0.25f);
+    } else if (value < 0.75f) { // Green -> Yellow
+        r = 4.0f * (value - 0.5f); g = 1.0f; b = 0.0f;
+    } else { // Yellow -> Red
+        r = 1.0f; g = 1.0f - 4.0f * (value - 0.75f); b = 0.0f;
+    }
+    return 0xFF000000 | (static_cast<uint32_t>(r * 255.0f) << 16) | (static_cast<uint32_t>(g * 255.0f) << 8) | static_cast<uint32_t>(b * 255.0f);
 }
 
 extern "C" JNIEXPORT jlong JNICALL
@@ -185,7 +192,7 @@ extern "C" JNIEXPORT void JNICALL
 Java_com_example_latticeboltzmann_NativeLBMEngine_addObstacleNative(
         JNIEnv *env, jobject thiz, jlong ptr, jint cx, jint cy, jint radius) {
 
-    LBMEngine* engine = reinterpret_cast<LBMEngine*>(ptr);
+    auto* engine = reinterpret_cast<LBMEngine*>(ptr);
 
     // 1. Draw the new obstacle
     for (int y = std::max(0, cy - radius); y <= std::min(engine->height - 1, cy + radius); y++) {
@@ -200,7 +207,7 @@ Java_com_example_latticeboltzmann_NativeLBMEngine_addObstacleNative(
 
 extern "C" JNIEXPORT void JNICALL
 Java_com_example_latticeboltzmann_NativeLBMEngine_stepAndRenderNative(JNIEnv *env, jobject thiz, jlong ptr, jobject bitmap, jint steps) {
-LBMEngine* engine = reinterpret_cast<LBMEngine*>(ptr);
+auto* engine = reinterpret_cast<LBMEngine*>(ptr);
 
 for (int i = 0; i < steps; i++) {
 engine->step();
@@ -208,12 +215,12 @@ engine->step();
 
 void* pixels;
 if (AndroidBitmap_lockPixels(env, bitmap, &pixels) < 0) return;
-uint32_t* bmpPixels = static_cast<uint32_t*>(pixels);
+auto* bmpPixels = static_cast<uint32_t*>(pixels);
 
 float maxVel = engine->uInlet * 1.8f;
 int totalPixels = engine->width * engine->height;
 
-#pragma omp parallel for schedule(static)
+#pragma omp parallel for default(none) shared(engine, bmpPixels, maxVel, totalPixels)
 for (int i = 0; i < totalPixels; i++) {
 if (engine->obstacles[i]) {
 bmpPixels[i] = 0xFFFFFFFF;
@@ -228,7 +235,7 @@ extern "C" JNIEXPORT void JNICALL
 Java_com_example_latticeboltzmann_NativeLBMEngine_resetSimulationNative(
         JNIEnv *env, jobject thiz, jlong ptr) {
 
-    LBMEngine* engine = reinterpret_cast<LBMEngine*>(ptr);;
+    auto* engine = reinterpret_cast<LBMEngine*>(ptr);
     engine->reset();
 }
 
@@ -236,7 +243,15 @@ extern "C" JNIEXPORT void JNICALL
 Java_com_example_latticeboltzmann_NativeLBMEngine_setInletVelocityNative(
         JNIEnv *env, jobject thiz, jlong ptr, jfloat velocity) {
 
-    LBMEngine* engine = reinterpret_cast<LBMEngine*>(ptr);
+    auto* engine = reinterpret_cast<LBMEngine*>(ptr);
     // Limit velocity for numerical stability (Mach number should remain low)
     engine->uInletTarget = std::max(0.0f, std::min(0.2f, velocity));
+}
+
+extern "C" JNIEXPORT jfloat JNICALL
+Java_com_example_latticeboltzmann_NativeLBMEngine_getInletVelocityNative(
+        JNIEnv *env, jobject thiz, jlong ptr) {
+
+    auto* engine = reinterpret_cast<LBMEngine*>(ptr);
+    return engine->uInlet;
 }
