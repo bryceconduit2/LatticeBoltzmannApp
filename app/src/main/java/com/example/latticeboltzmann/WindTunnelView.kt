@@ -31,6 +31,12 @@ class WindTunnelView @JvmOverloads constructor(
     private val baseRadius = 8
     private val maxRadius = 60 // Stop growing so it doesn't block the whole tunnel
 
+    // Telemetry
+    private var lastTime = System.nanoTime()
+    private var fps = 0.0
+    private var sps = 0.0
+    private val stepsPerFrame = 20
+
     private val bitmap = Bitmap.createBitmap(simWidth, simHeight, Bitmap.Config.ARGB_8888)
     private val paint = Paint().apply { isFilterBitmap = false } // Keep pixels sharp
 
@@ -138,8 +144,17 @@ class WindTunnelView @JvmOverloads constructor(
                 lastTouchSimY = touchSimY
             }
 
-            // Execute 15 physics steps natively before rendering
-            engine.stepAndRender(bitmap, 15)
+            val now = System.nanoTime()
+            val dtNano = now - lastTime
+            if (dtNano > 0) {
+                val currentFps = 1_000_000_000.0 / dtNano
+                fps = fps * 0.9 + currentFps * 0.1 // Smooth FPS
+                sps = fps * stepsPerFrame
+            }
+            lastTime = now
+
+            // Execute physics steps natively before rendering
+            engine.stepAndRender(bitmap, stepsPerFrame)
 
             val canvas = holder.lockCanvas()
             if (canvas != null) {
@@ -163,6 +178,7 @@ class WindTunnelView @JvmOverloads constructor(
                 canvas.drawText(String.format(Locale.US, "Velocity: %.1f m/s", currentVel), 30f, 80f, textPaint)
                 canvas.drawText(String.format(Locale.US, "Drag: %.2f N", dragN), 30f, 140f, textPaint)
                 canvas.drawText("Tunnel: 1.0m x 0.5m x 1.0m", 30f, 200f, textPaint)
+                canvas.drawText(String.format(Locale.US, "Performance: %.0f FPS | %.0f Steps/s", fps, sps), 30f, 260f, textPaint)
 
                 drawScaleBar(canvas)
                 

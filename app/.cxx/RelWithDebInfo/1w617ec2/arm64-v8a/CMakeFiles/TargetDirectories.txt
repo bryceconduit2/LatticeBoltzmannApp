@@ -1,0 +1,3 @@
+C:/Users/bryce/AndroidStudioProjects/LatticeBoltzmannApp/app/.cxx/RelWithDebInfo/1w617ec2/arm64-v8a/CMakeFiles/latticeboltzmann.dir
+C:/Users/bryce/AndroidStudioProjects/LatticeBoltzmannApp/app/.cxx/RelWithDebInfo/1w617ec2/arm64-v8a/CMakeFiles/edit_cache.dir
+C:/Users/bryce/AndroidStudioProjects/LatticeBoltzmannApp/app/.cxx/RelWithDebInfo/1w617ec2/arm64-v8a/CMakeFiles/rebuild_cache.dir

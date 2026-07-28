@@ -31,12 +31,17 @@ android {
         }
     }
     buildTypes {
-        release {
+        getByName("release") {
             isMinifyEnabled = false
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
-            )
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+
+            // ADD THIS LINE:
+            signingConfig = signingConfigs.getByName("debug")
+
+            // ADD THIS BLOCK:
+            installation {
+                enableBaselineProfile = false
+            }
         }
     }
     sourceSets {

@@ -27,10 +27,15 @@ struct LBMEngine {
     std::vector<float> velocityMag;
     std::vector<float> smoothedVelocityMag;
 
-    const int cxs[9] = {0, 1, 0, -1, 0, 1, -1, -1, 1};
-    const int cys[9] = {0, 0, 1, 0, -1, 1, 1, -1, -1};
+    const float cxs[9] = {0.0f, 1.0f, 0.0f, -1.0f, 0.0f, 1.0f, -1.0f, -1.0f, 1.0f};
+    const float cys[9] = {0.0f, 0.0f, 1.0f, 0.0f, -1.0f, 1.0f, 1.0f, -1.0f, -1.0f};
     const float weights[9] = {4.f/9, 1.f/9, 1.f/9, 1.f/9, 1.f/9, 1.f/36, 1.f/36, 1.f/36, 1.f/36};
     const int opposite[9] = {0, 3, 4, 1, 2, 7, 8, 5, 6};
+
+    // Precomputed helpers for stress tensor (pixx, pixy, piyy)
+    const float cxx[9] = {0, 1, 0, 1, 0, 1, 1, 1, 1}; // cxs*cxs
+    const float cyy[9] = {0, 0, 1, 0, 1, 1, 1, 1, 1}; // cys*cys
+    const float cxy[9] = {0, 0, 0, 0, 0, 1, -1, 1, -1}; // cxs*cys
 
     LBMEngine(int w, int h) : width(w), height(h) {
         int size = width * height;
@@ -49,7 +54,7 @@ struct LBMEngine {
             for (int x = 0; x < width; x++) {
                 int idx = (y * width + x) * 9;
                 for (int i = 0; i < 9; i++) {
-                    float cu = 3.0f * (static_cast<float>(cxs[i]) * velocity);
+                    float cu = 3.0f * (cxs[i] * velocity);
                     f[idx + i] = weights[i] * (1.0f + cu + 0.5f * cu * cu - usqr);
                 }
             }
@@ -71,115 +76,95 @@ struct LBMEngine {
         // Calculate physical omega based on air viscosity
         float nuLB = nuAir * dt / (dx * dx);
         omega = 1.0f / (3.0f * nuLB + 0.5f);
+        float tau_0 = 1.0f / omega;
+        float inv2cs4 = 1.0f / (2.0f * cs2 * cs2);
 
         // Reset drag counter for this step
         float localDragX = 0.0f;
 
-        // 1. Streaming (Pull Method for Cache Efficiency)
-#pragma omp parallel for default(none) shared(fNew, f, height, width, cxs, cys, opposite) reduction(+:localDragX)
-        for (int y = 0; y < height; y++) {
-            for (int x = 0; x < width; x++) {
-                int fBase = (y * width + x) * 9;
-                for (int i = 0; i < 9; i++) {
-                    int nx = x - cxs[i];
-                    int ny = y - cys[i];
-
-                    if (nx < 0) nx = width - 1; else if (nx >= width) nx = 0;
-                    if (ny < 0) ny = height - 1; else if (ny >= height) ny = 0;
-
-                    int sourceIdx = (ny * width + nx) * 9 + i;
-
-                    // Momentum Exchange for Drag Calculation
-                    if (obstacles[y * width + x] && !obstacles[ny * width + nx]) {
-                        // Link from fluid (nx, ny) to solid (x, y)
-                        // The particle that would have streamed into the solid bounces back
-                        float f_to_solid = f[sourceIdx];
-                        localDragX += f_to_solid * static_cast<float>(cxs[i]);
-                    }
-
-                    fNew[fBase + i] = f[sourceIdx];
-                }
-            }
-        }
-
-        // Convert lattice force to Newtons (assuming 1m depth)
-        // F_phys = F_lb * rho * (dx^3 / dt^2)
-        dragForceNewtons = localDragX * rhoAir * (dx * dx * dx) / (dt * dt);
-
-        // 2. Collision with Regularization & Smagorinsky
-#pragma omp parallel for default(none) shared(f, fNew, obstacles, velocityMag, width, height, uInlet, cs2, SmagorinskyConstant, omega, weights, cxs, cys, opposite)
+        // Fused Streaming & Collision Loop
+#pragma omp parallel for default(none) shared(f, fNew, obstacles, velocityMag, width, height, uInlet, cs2, SmagorinskyConstant, omega, weights, cxs, cys, opposite, tau_0, cxx, cyy, cxy, inv2cs4) reduction(+:localDragX)
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
                 int idx = y * width + x;
                 int fBase = idx * 9;
+                float local_f[9];
+
+                // 1. PULL STREAMING
+                for (int i = 0; i < 9; i++) {
+                    int nx = x - static_cast<int>(cxs[i]);
+                    int ny = y - static_cast<int>(cys[i]);
+                    if (nx < 0) nx = width - 1; else if (nx >= width) nx = 0;
+                    if (ny < 0) ny = height - 1; else if (ny >= height) ny = 0;
+
+                    int srcIdx = (ny * width + nx) * 9 + i;
+                    local_f[i] = f[srcIdx];
+
+                    // Momentum Exchange for Drag
+                    if (obstacles[idx] && !obstacles[ny * width + nx]) {
+                        localDragX += local_f[i] * cxs[i];
+                    }
+                }
 
                 if (obstacles[idx]) {
-                    for (int i = 0; i < 9; i++) {
-                        f[fBase + i] = fNew[fBase + opposite[i]];
+                    // Bounce-back Boundary
+                    for (int i = 0; i < 9; ++i) {
+                        fNew[fBase + i] = local_f[opposite[i]];
                     }
                     velocityMag[idx] = 0.0f;
                 } else {
-                    float rho = 0.0f, ux = 0.0f, uy = 0.0f;
-                    for (int i = 0; i < 9; i++) {
-                        float fi = fNew[fBase + i];
-                        rho += fi;
-                        ux += fi * static_cast<float>(cxs[i]);
-                        uy += fi * static_cast<float>(cys[i]);
-                    }
-
-                    // Numerical Safeguards: Clamp density
+                    // 2. MACROSCOPIC MOMENTS
+                    float rho = 0.0f;
+                    for (int i = 0; i < 9; ++i) rho += local_f[i];
                     rho = std::max(0.1f, rho);
-                    ux /= rho; uy /= rho;
+                    float invRho = 1.0f / rho;
+
+                    float ux = (local_f[1] - local_f[3] + local_f[5] - local_f[6] - local_f[7] + local_f[8]) * invRho;
+                    float uy = (local_f[2] - local_f[4] + local_f[5] + local_f[6] - local_f[7] - local_f[8]) * invRho;
 
                     if (x == 0) {
                         ux = uInlet; uy = 0.0f; rho = 1.0f;
                         velocityMag[idx] = ux;
-                        float usqr_inlet = 1.5f * (ux * ux);
+                        float usqr_in = 1.5f * (ux * ux);
                         for (int i = 0; i < 9; i++) {
-                            float cu = 3.0f * (static_cast<float>(cxs[i]) * ux);
-                            f[fBase + i] = weights[i] * (1.0f + cu + 0.5f * cu * cu - usqr_inlet);
+                            float cu = 3.0f * (cxs[i] * ux);
+                            fNew[fBase + i] = weights[i] * (1.0f + cu + 0.5f * cu * cu - usqr_in);
                         }
                     } else {
-                        // Numerical Safeguards: Clamp velocity magnitude
-                        float vMag = std::sqrt(ux * ux + uy * uy);
+                        float vMag2 = ux * ux + uy * uy;
+                        float vMag = std::sqrt(vMag2);
                         if (vMag > 0.5f) {
                             float scale = 0.5f / vMag;
                             ux *= scale; uy *= scale;
                             vMag = 0.5f;
+                            vMag2 = 0.25f;
                         }
                         velocityMag[idx] = vMag;
 
-                        float usqr = 1.5f * (ux * ux + uy * uy);
+                        float usqr = 1.5f * vMag2;
 
-                        // --- Regularization Logic ---
-                        // Calculate non-equilibrium stress tensor (Pi)
+                        // --- Regularization & Stress Tensor ---
                         float pixx = 0, pixy = 0, piyy = 0;
+                        float fi_eq[9];
                         for (int i = 0; i < 9; i++) {
-                            float fi_eq = rho * weights[i] * (1.0f + 3.0f*(cxs[i]*ux + cys[i]*uy) + 4.5f*(cxs[i]*ux + cys[i]*uy)*(cxs[i]*ux + cys[i]*uy) - usqr);
-                            float fi_neq = fNew[fBase + i] - fi_eq;
-                            pixx += fi_neq * cxs[i] * cxs[i];
-                            pixy += fi_neq * cxs[i] * cys[i];
-                            piyy += fi_neq * cys[i] * cys[i];
+                            float ck_u = cxs[i] * ux + cys[i] * uy;
+                            fi_eq[i] = rho * weights[i] * (1.0f + 3.0f * ck_u + 4.5f * ck_u * ck_u - usqr);
+                            float fi_neq = local_f[i] - fi_eq[i];
+                            pixx += fi_neq * cxx[i];
+                            pixy += fi_neq * cxy[i];
+                            piyy += fi_neq * cyy[i];
                         }
 
-                        // --- Smagorinsky Model Logic ---
-                        // Local strain rate S = sqrt(2 * S_ij * S_ij)
-                        float pi_sq = pixx * pixx + 2.0f * pixy * pixy + piyy * piyy;
-                        float S = std::sqrt(pi_sq) / (rho * 2.0f * cs2);
-                        float tau_0 = 1.0f / omega;
+                        // --- Smagorinsky Model ---
+                        float S = std::sqrt(pixx * pixx + 2.0f * pixy * pixy + piyy * piyy) * invRho / (2.0f * cs2);
                         float tau_t = 0.5f * (std::sqrt(tau_0 * tau_0 + 18.0f * SmagorinskyConstant * SmagorinskyConstant * S) - tau_0);
                         float omega_eff = 1.0f / (tau_0 + tau_t);
 
                         // --- Regularized Collision ---
                         for (int i = 0; i < 9; i++) {
-                            float fi_eq = rho * weights[i] * (1.0f + 3.0f*(cxs[i]*ux + cys[i]*uy) + 4.5f*(cxs[i]*ux + cys[i]*uy)*(cxs[i]*ux + cys[i]*uy) - usqr);
-                            float Qixx = cxs[i] * cxs[i] - cs2;
-                            float Qixy = cxs[i] * cys[i];
-                            float Qiyy = cys[i] * cys[i] - cs2;
-                            // Add a small regularization factor (0.98) to muffle high-frequency non-equilibrium noise
-                            float fi_neq_reg = 0.98f * (weights[i] / (2.0f * cs2 * cs2)) * (Qixx * pixx + 2.0f * Qixy * pixy + Qiyy * piyy);
-
-                            f[fBase + i] = fi_eq + (1.0f - omega_eff) * fi_neq_reg;
+                            float Qpix = (cxx[i] - cs2) * pixx + 2.0f * cxy[i] * pixy + (cyy[i] - cs2) * piyy;
+                            float fi_neq_reg = 0.98f * weights[i] * inv2cs4 * Qpix;
+                            fNew[fBase + i] = fi_eq[i] + (1.0f - omega_eff) * fi_neq_reg;
                         }
                     }
 
@@ -187,23 +172,25 @@ struct LBMEngine {
                     if (x > width * 0.85) {
                         float spongeStart = static_cast<float>(width) * 0.85f;
                         float spongeWidth = static_cast<float>(width) * 0.15f;
-                        // Cubic profile for smoother transition
                         float dist = (static_cast<float>(x) - spongeStart) / spongeWidth;
                         float alpha = dist * dist * dist * 0.2f;
 
                         float uInletSqr = 1.5f * (uInlet * uInlet);
                         for (int i = 0; i < 9; i++) {
-                            // Target equilibrium at the outlet (rho=1.0, u=uInlet)
-                            float cu = 3.0f * (static_cast<float>(cxs[i]) * uInlet);
+                            float cu = 3.0f * (cxs[i] * uInlet);
                             float feqInlet = weights[i] * (1.0f + cu + 0.5f * cu * cu - uInletSqr);
-
-                            // Relax f towards the outlet target to swallow pressure waves (ripples)
-                            f[fBase + i] = f[fBase + i] * (1.0f - alpha) + feqInlet * alpha;
+                            fNew[fBase + i] = fNew[fBase + i] * (1.0f - alpha) + feqInlet * alpha;
                         }
                     }
                 }
             }
         }
+
+        // Convert lattice force to Newtons
+        dragForceNewtons = localDragX * rhoAir * (dx * dx * dx) / (dt * dt);
+
+        // Swap buffers
+        f.swap(fNew);
     }
 };
 
@@ -270,47 +257,43 @@ Java_com_example_latticeboltzmann_NativeLBMEngine_stepAndRenderNative(JNIEnv *en
     int w = engine->width;
     int h = engine->height;
 
-    // 1. Spatial 3x3 Smoothing Pass + Temporal Blending
-#pragma omp parallel for default(none) shared(engine, w, h)
+    // Fused Smoothing & Render Pass
+#pragma omp parallel for default(none) shared(engine, w, h, bmpPixels, maxVel)
     for (int y = 0; y < h; y++) {
         for (int x = 0; x < w; x++) {
             int idx = y * w + x;
             if (engine->obstacles[idx]) {
                 engine->smoothedVelocityMag[idx] = 0.0f;
+                bmpPixels[idx] = 0xFFFFFFFF;
                 continue;
             }
 
-            // 3x3 Average Filter
+            // Fast 3x3 Smoothing
             float sum = 0.0f;
             float count = 0.0f;
+            // Neighborhood unrolling or simplification
             for (int dy = -1; dy <= 1; dy++) {
-                for (int dx = -1; dx <= 1; dx++) {
-                    int nx = x + dx;
-                    int ny = y + dy;
-                    if (nx >= 0 && nx < w && ny >= 0 && ny < h) {
-                        int nidx = ny * w + nx;
-                        if (!engine->obstacles[nidx]) {
-                            sum += engine->velocityMag[nidx];
-                            count += 1.0f;
+                int ny = y + dy;
+                if (ny >= 0 && ny < h) {
+                    for (int dx = -1; dx <= 1; dx++) {
+                        int nx = x + dx;
+                        if (nx >= 0 && nx < w) {
+                            int nidx = ny * w + nx;
+                            if (!engine->obstacles[nidx]) {
+                                sum += engine->velocityMag[nidx];
+                                count += 1.0f;
+                            }
                         }
                     }
                 }
             }
             float spatialAvg = (count > 0.0f) ? (sum / count) : 0.0f;
 
-            // Temporal Damping (Exponential moving average)
-            engine->smoothedVelocityMag[idx] = engine->smoothedVelocityMag[idx] * 0.7f + spatialAvg * 0.3f;
-        }
-    }
+            // Temporal Damping + Mapping
+            float renderedV = engine->smoothedVelocityMag[idx] * 0.7f + spatialAvg * 0.3f;
+            engine->smoothedVelocityMag[idx] = renderedV;
 
-    // 2. Render Pass
-    int totalPixels = w * h;
-#pragma omp parallel for default(none) shared(engine, bmpPixels, maxVel, totalPixels)
-    for (int i = 0; i < totalPixels; i++) {
-        if (engine->obstacles[i]) {
-            bmpPixels[i] = 0xFFFFFFFF;
-        } else {
-            bmpPixels[i] = heatMapColor(engine->smoothedVelocityMag[i] / maxVel);
+            bmpPixels[idx] = heatMapColor(renderedV / maxVel);
         }
     }
     AndroidBitmap_unlockPixels(env, bitmap);
