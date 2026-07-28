@@ -17,6 +17,7 @@ struct LBMEngine {
     std::vector<float> fNew;
     std::vector<bool> obstacles;
     std::vector<float> velocityMag;
+    std::vector<float> smoothedVelocityMag;
 
     const int cxs[9] = {0, 1, 0, -1, 0, 1, -1, -1, 1};
     const int cys[9] = {0, 0, 1, 0, -1, 1, 1, -1, -1};
@@ -29,6 +30,7 @@ struct LBMEngine {
         fNew.resize(size * 9, 0.0f);
         obstacles.resize(size, false);
         velocityMag.resize(size, 0.0f);
+        smoothedVelocityMag.resize(size, 0.0f);
 
         initFluid(uInlet);
     }
@@ -50,6 +52,7 @@ struct LBMEngine {
     void reset() {
         std::fill(obstacles.begin(), obstacles.end(), false);
         std::fill(velocityMag.begin(), velocityMag.end(), 0.0f);
+        std::fill(smoothedVelocityMag.begin(), smoothedVelocityMag.end(), 0.0f);
         initFluid(uInlet);
     }
 
@@ -143,41 +146,28 @@ struct LBMEngine {
                             float Qixx = cxs[i] * cxs[i] - cs2;
                             float Qixy = cxs[i] * cys[i];
                             float Qiyy = cys[i] * cys[i] - cs2;
-                            float fi_neq_reg = (weights[i] / (2.0f * cs2 * cs2)) * (Qixx * pixx + 2.0f * Qixy * pixy + Qiyy * piyy);
+                            // Add a small regularization factor (0.98) to muffle high-frequency non-equilibrium noise
+                            float fi_neq_reg = 0.98f * (weights[i] / (2.0f * cs2 * cs2)) * (Qixx * pixx + 2.0f * Qixy * pixy + Qiyy * piyy);
 
                             f[fBase + i] = fi_eq + (1.0f - omega_eff) * fi_neq_reg;
                         }
                     }
 
-                    // 3. Sponge Layer Damping (Muffled Periodic)
-                    float alpha = 0.0f;
-
-                    // X-axis (Right Outlet) - Cubic
+                    // 3. Sponge Layer Damping (Right Outlet only)
                     if (x > width * 0.85) {
                         float spongeStart = static_cast<float>(width) * 0.85f;
                         float spongeWidth = static_cast<float>(width) * 0.15f;
+                        // Cubic profile for smoother transition
                         float dist = (static_cast<float>(x) - spongeStart) / spongeWidth;
-                        alpha = std::max(alpha, dist * dist * dist * 0.2f);
-                    }
+                        float alpha = dist * dist * dist * 0.2f;
 
-                    // Y-axis (Top/Bottom) - Quadratic for softer dampening
-                    if (y < height * 0.1) {
-                        float spongeStart = static_cast<float>(height) * 0.1f;
-                        float dist = (spongeStart - static_cast<float>(y)) / spongeStart;
-                        alpha = std::max(alpha, dist * dist * 0.1f);
-                    } else if (y > height * 0.9) {
-                        float spongeStart = static_cast<float>(height) * 0.9f;
-                        float spongeWidth = static_cast<float>(height) * 0.1f;
-                        float dist = (static_cast<float>(y) - spongeStart) / spongeWidth;
-                        alpha = std::max(alpha, dist * dist * 0.1f);
-                    }
-
-                    if (alpha > 0.0f) {
                         float uInletSqr = 1.5f * (uInlet * uInlet);
                         for (int i = 0; i < 9; i++) {
-                            // Target equilibrium (rho=1.0, u=uInlet)
+                            // Target equilibrium at the outlet (rho=1.0, u=uInlet)
                             float cu = 3.0f * (static_cast<float>(cxs[i]) * uInlet);
                             float feqInlet = weights[i] * (1.0f + cu + 0.5f * cu * cu - uInletSqr);
+
+                            // Relax f towards the outlet target to swallow pressure waves (ripples)
                             f[fBase + i] = f[fBase + i] * (1.0f - alpha) + feqInlet * alpha;
                         }
                     }
@@ -236,28 +226,64 @@ Java_com_example_latticeboltzmann_NativeLBMEngine_addObstacleNative(
 
 extern "C" JNIEXPORT void JNICALL
 Java_com_example_latticeboltzmann_NativeLBMEngine_stepAndRenderNative(JNIEnv *env, jobject thiz, jlong ptr, jobject bitmap, jint steps) {
-auto* engine = reinterpret_cast<LBMEngine*>(ptr);
+    auto* engine = reinterpret_cast<LBMEngine*>(ptr);
 
-for (int i = 0; i < steps; i++) {
-engine->step();
-}
+    for (int i = 0; i < steps; i++) {
+        engine->step();
+    }
 
-void* pixels;
-if (AndroidBitmap_lockPixels(env, bitmap, &pixels) < 0) return;
-auto* bmpPixels = static_cast<uint32_t*>(pixels);
+    void* pixels;
+    if (AndroidBitmap_lockPixels(env, bitmap, &pixels) < 0) return;
+    auto* bmpPixels = static_cast<uint32_t*>(pixels);
 
-float maxVel = engine->uInlet * 1.8f;
-int totalPixels = engine->width * engine->height;
+    float maxVel = engine->uInlet * 1.8f;
+    int w = engine->width;
+    int h = engine->height;
 
+    // 1. Spatial 3x3 Smoothing Pass + Temporal Blending
+#pragma omp parallel for default(none) shared(engine, w, h)
+    for (int y = 0; y < h; y++) {
+        for (int x = 0; x < w; x++) {
+            int idx = y * w + x;
+            if (engine->obstacles[idx]) {
+                engine->smoothedVelocityMag[idx] = 0.0f;
+                continue;
+            }
+
+            // 3x3 Average Filter
+            float sum = 0.0f;
+            float count = 0.0f;
+            for (int dy = -1; dy <= 1; dy++) {
+                for (int dx = -1; dx <= 1; dx++) {
+                    int nx = x + dx;
+                    int ny = y + dy;
+                    if (nx >= 0 && nx < w && ny >= 0 && ny < h) {
+                        int nidx = ny * w + nx;
+                        if (!engine->obstacles[nidx]) {
+                            sum += engine->velocityMag[nidx];
+                            count += 1.0f;
+                        }
+                    }
+                }
+            }
+            float spatialAvg = (count > 0.0f) ? (sum / count) : 0.0f;
+
+            // Temporal Damping (Exponential moving average)
+            engine->smoothedVelocityMag[idx] = engine->smoothedVelocityMag[idx] * 0.7f + spatialAvg * 0.3f;
+        }
+    }
+
+    // 2. Render Pass
+    int totalPixels = w * h;
 #pragma omp parallel for default(none) shared(engine, bmpPixels, maxVel, totalPixels)
-for (int i = 0; i < totalPixels; i++) {
-if (engine->obstacles[i]) {
-bmpPixels[i] = 0xFFFFFFFF;
-} else {
-bmpPixels[i] = heatMapColor(engine->velocityMag[i] / maxVel);
-}
-}
-AndroidBitmap_unlockPixels(env, bitmap);
+    for (int i = 0; i < totalPixels; i++) {
+        if (engine->obstacles[i]) {
+            bmpPixels[i] = 0xFFFFFFFF;
+        } else {
+            bmpPixels[i] = heatMapColor(engine->smoothedVelocityMag[i] / maxVel);
+        }
+    }
+    AndroidBitmap_unlockPixels(env, bitmap);
 }
 
 extern "C" JNIEXPORT void JNICALL
