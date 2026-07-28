@@ -157,9 +157,6 @@ class WindTunnelView @JvmOverloads constructor(
                     )
                 }
 
-                canvas.drawText("(400x200)", 30f, 80f, textPaint)
-                canvas.drawText("15 steps/frame", 30f, 140f, textPaint)
-                
                 drawScaleBar(canvas)
                 
                 holder.unlockCanvasAndPost(canvas)

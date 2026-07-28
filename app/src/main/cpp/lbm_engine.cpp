@@ -9,9 +9,9 @@ struct LBMEngine {
     int width, height;
     float uInlet = 0.12f;
     float uInletTarget = 0.12f;
-    float omega = 1.0f / 0.53f;
+    float omega = 1.0f / 0.55f;
     const float cs2 = 1.0f / 3.0f;
-    const float SmagorinskyConstant = 0.12f;
+    const float SmagorinskyConstant = 0.16f;
 
     std::vector<float> f;
     std::vector<float> fNew;
@@ -64,6 +64,7 @@ struct LBMEngine {
                 for (int i = 0; i < 9; i++) {
                     int nx = x - cxs[i];
                     int ny = y - cys[i];
+
                     if (nx < 0) nx = width - 1; else if (nx >= width) nx = 0;
                     if (ny < 0) ny = height - 1; else if (ny >= height) ny = 0;
 
@@ -97,58 +98,85 @@ struct LBMEngine {
                     rho = std::max(0.1f, rho);
                     ux /= rho; uy /= rho;
 
-                    if (x == 0) { ux = uInlet; uy = 0.0f; rho = 1.0f; }
+                    if (x == 0) {
+                        ux = uInlet; uy = 0.0f; rho = 1.0f;
+                        velocityMag[idx] = ux;
+                        float usqr_inlet = 1.5f * (ux * ux);
+                        for (int i = 0; i < 9; i++) {
+                            float cu = 3.0f * (static_cast<float>(cxs[i]) * ux);
+                            f[fBase + i] = weights[i] * (1.0f + cu + 0.5f * cu * cu - usqr_inlet);
+                        }
+                    } else {
+                        // Numerical Safeguards: Clamp velocity magnitude
+                        float vMag = std::sqrt(ux * ux + uy * uy);
+                        if (vMag > 0.5f) {
+                            float scale = 0.5f / vMag;
+                            ux *= scale; uy *= scale;
+                            vMag = 0.5f;
+                        }
+                        velocityMag[idx] = vMag;
 
-                    // Numerical Safeguards: Clamp velocity magnitude
-                    float vMag = std::sqrt(ux * ux + uy * uy);
-                    if (vMag > 0.25f) {
-                        float scale = 0.25f / vMag;
-                        ux *= scale; uy *= scale;
-                        vMag = 0.25f;
+                        float usqr = 1.5f * (ux * ux + uy * uy);
+
+                        // --- Regularization Logic ---
+                        // Calculate non-equilibrium stress tensor (Pi)
+                        float pixx = 0, pixy = 0, piyy = 0;
+                        for (int i = 0; i < 9; i++) {
+                            float fi_eq = rho * weights[i] * (1.0f + 3.0f*(cxs[i]*ux + cys[i]*uy) + 4.5f*(cxs[i]*ux + cys[i]*uy)*(cxs[i]*ux + cys[i]*uy) - usqr);
+                            float fi_neq = fNew[fBase + i] - fi_eq;
+                            pixx += fi_neq * cxs[i] * cxs[i];
+                            pixy += fi_neq * cxs[i] * cys[i];
+                            piyy += fi_neq * cys[i] * cys[i];
+                        }
+
+                        // --- Smagorinsky Model Logic ---
+                        // Local strain rate S = sqrt(2 * S_ij * S_ij)
+                        float pi_sq = pixx * pixx + 2.0f * pixy * pixy + piyy * piyy;
+                        float S = std::sqrt(pi_sq) / (rho * 2.0f * cs2);
+                        float tau_0 = 1.0f / omega;
+                        float tau_t = 0.5f * (std::sqrt(tau_0 * tau_0 + 18.0f * SmagorinskyConstant * SmagorinskyConstant * S) - tau_0);
+                        float omega_eff = 1.0f / (tau_0 + tau_t);
+
+                        // --- Regularized Collision ---
+                        for (int i = 0; i < 9; i++) {
+                            float fi_eq = rho * weights[i] * (1.0f + 3.0f*(cxs[i]*ux + cys[i]*uy) + 4.5f*(cxs[i]*ux + cys[i]*uy)*(cxs[i]*ux + cys[i]*uy) - usqr);
+                            float Qixx = cxs[i] * cxs[i] - cs2;
+                            float Qixy = cxs[i] * cys[i];
+                            float Qiyy = cys[i] * cys[i] - cs2;
+                            float fi_neq_reg = (weights[i] / (2.0f * cs2 * cs2)) * (Qixx * pixx + 2.0f * Qixy * pixy + Qiyy * piyy);
+
+                            f[fBase + i] = fi_eq + (1.0f - omega_eff) * fi_neq_reg;
+                        }
                     }
-                    velocityMag[idx] = vMag;
 
-                    float usqr = 1.5f * (ux * ux + uy * uy);
+                    // 3. Sponge Layer Damping (Muffled Periodic)
+                    float alpha = 0.0f;
 
-                    // --- Regularization Logic ---
-                    // Calculate non-equilibrium stress tensor (Pi)
-                    float pixx = 0, pixy = 0, piyy = 0;
-                    for (int i = 0; i < 9; i++) {
-                        float fi_eq = rho * weights[i] * (1.0f + 3.0f*(cxs[i]*ux + cys[i]*uy) + 4.5f*(cxs[i]*ux + cys[i]*uy)*(cxs[i]*ux + cys[i]*uy) - usqr);
-                        float fi_neq = fNew[fBase + i] - fi_eq;
-                        pixx += fi_neq * cxs[i] * cxs[i];
-                        pixy += fi_neq * cxs[i] * cys[i];
-                        piyy += fi_neq * cys[i] * cys[i];
-                    }
-
-                    // --- Smagorinsky Model Logic ---
-                    // Local strain rate S = sqrt(2 * S_ij * S_ij)
-                    float pi_sq = pixx * pixx + 2.0f * pixy * pixy + piyy * piyy;
-                    float S = std::sqrt(pi_sq) / (rho * 2.0f * cs2);
-                    float tau_0 = 1.0f / omega;
-                    float tau_t = 0.5f * (std::sqrt(tau_0 * tau_0 + 18.0f * SmagorinskyConstant * SmagorinskyConstant * S) - tau_0);
-                    float omega_eff = 1.0f / (tau_0 + tau_t);
-
-                    // --- Regularized Collision ---
-                    for (int i = 0; i < 9; i++) {
-                        float fi_eq = rho * weights[i] * (1.0f + 3.0f*(cxs[i]*ux + cys[i]*uy) + 4.5f*(cxs[i]*ux + cys[i]*uy)*(cxs[i]*ux + cys[i]*uy) - usqr);
-                        float Qixx = cxs[i] * cxs[i] - cs2;
-                        float Qixy = cxs[i] * cys[i];
-                        float Qiyy = cys[i] * cys[i] - cs2;
-                        float fi_neq_reg = (weights[i] / (2.0f * cs2 * cs2)) * (Qixx * pixx + 2.0f * Qixy * pixy + Qiyy * piyy);
-
-                        f[fBase + i] = fi_eq + (1.0f - omega_eff) * fi_neq_reg;
-                    }
-
-                    // 3. Sponge Layer Damping (Right Outlet)
+                    // X-axis (Right Outlet) - Cubic
                     if (x > width * 0.85) {
-                        float spongeStart = width * 0.85f;
-                        float spongeWidth = width * 0.15f;
-                        float alpha = std::pow((static_cast<float>(x) - spongeStart) / spongeWidth, 2.0f) * 0.1f;
+                        float spongeStart = static_cast<float>(width) * 0.85f;
+                        float spongeWidth = static_cast<float>(width) * 0.15f;
+                        float dist = (static_cast<float>(x) - spongeStart) / spongeWidth;
+                        alpha = std::max(alpha, dist * dist * dist * 0.2f);
+                    }
 
+                    // Y-axis (Top/Bottom) - Quadratic for softer dampening
+                    if (y < height * 0.1) {
+                        float spongeStart = static_cast<float>(height) * 0.1f;
+                        float dist = (spongeStart - static_cast<float>(y)) / spongeStart;
+                        alpha = std::max(alpha, dist * dist * 0.1f);
+                    } else if (y > height * 0.9) {
+                        float spongeStart = static_cast<float>(height) * 0.9f;
+                        float spongeWidth = static_cast<float>(height) * 0.1f;
+                        float dist = (static_cast<float>(y) - spongeStart) / spongeWidth;
+                        alpha = std::max(alpha, dist * dist * 0.1f);
+                    }
+
+                    if (alpha > 0.0f) {
                         float uInletSqr = 1.5f * (uInlet * uInlet);
                         for (int i = 0; i < 9; i++) {
-                            float cu = 3.0f * (cxs[i] * uInlet);
+                            // Target equilibrium (rho=1.0, u=uInlet)
+                            float cu = 3.0f * (static_cast<float>(cxs[i]) * uInlet);
                             float feqInlet = weights[i] * (1.0f + cu + 0.5f * cu * cu - uInletSqr);
                             f[fBase + i] = f[fBase + i] * (1.0f - alpha) + feqInlet * alpha;
                         }
@@ -246,7 +274,7 @@ Java_com_example_latticeboltzmann_NativeLBMEngine_setInletVelocityNative(
 
     auto* engine = reinterpret_cast<LBMEngine*>(ptr);
     // Limit velocity for numerical stability (Mach number should remain low)
-    engine->uInletTarget = std::max(0.0f, std::min(0.2f, velocity));
+    engine->uInletTarget = std::max(0.0f, std::min(0.4f, velocity));
 }
 
 extern "C" JNIEXPORT jfloat JNICALL
