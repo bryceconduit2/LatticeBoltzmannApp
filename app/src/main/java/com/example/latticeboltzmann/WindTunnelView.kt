@@ -277,20 +277,11 @@ class WindTunnelView @JvmOverloads constructor(
             canvas.drawText(maxLabel, right, top - 15f, scaleTextPaint)
         } else {
             // Pressure mode (Relative deviation)
-            // LBM Pressure = rho * cs^2. Deviation = delta_rho * cs^2.
-            // Phys pressure = LBM_Pressure * rho_phys * (dx/dt)^2
-            // Our viz uses a range based on pressScale = 1 / (uIn^2 * 3).
-            // A deviation of 0.5 (full scale from center) maps to deltaP = 0.5 / pressScale.
-            val dx = engine.getDX()
-            val dt = 0.000005f 
+            // We scale the heatmap so that the dynamic pressure q = 0.5 * rho * u^2 
+            // is the full scale deviation from the center.
             val rhoPhys = engine.getDensity()
             val uInPhys = engine.getInletVelocity()
-            val uInL = uInPhys * dt / dx
-            
-            // pressScale = 1 / (3 * uInL^2)
-            // fullScaleDeltaP (Lattice) = 0.5 / pressScale = 1.5 * uInL^2
-            // fullScaleDeltaP (Phys) = (1.5 * uInL^2) * rhoPhys * (dx/dt)^2
-            val maxDeltaP = 1.5f * (uInL * uInL) * rhoPhys * (dx / dt) * (dx / dt)
+            val maxDeltaP = 0.5f * rhoPhys * uInPhys * uInPhys
             
             val offset = if (useAbsolutePressure) 101325f else 0.0f
             
