@@ -60,6 +60,37 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
+                android:text="Airflow Speed"
+                android:textColor="@android:color/white" />
+
+            <TextView
+                android:id="@+id/tvSpeedValue"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="30.0 m/s"
+                android:textColor="@android:color/white" />
+        </LinearLayout>
+
+        <SeekBar
+            android:id="@+id/sbSpeed"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:max="200"
+            android:progress="120" />
+
+        <Space
+            android:layout_width="match_parent"
+            android:layout_height="16dp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
                 android:text="Fluid Density"
                 android:textColor="@android:color/white" />
 
@@ -140,6 +171,87 @@
                 android:text="Square"
                 android:textColor="@android:color/white" />
         </RadioGroup>
+
+        <Space
+            android:layout_width="match_parent"
+            android:layout_height="16dp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Initial Brush Size"
+                android:textColor="@android:color/white" />
+
+            <TextView
+                android:id="@+id/tvBrushSizeValue"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="8 px"
+                android:textColor="@android:color/white" />
+        </LinearLayout>
+
+        <SeekBar
+            android:id="@+id/sbBrushSize"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:max="40"
+            android:progress="8" />
+
+        <Space
+            android:layout_width="match_parent"
+            android:layout_height="16dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Visualization Map"
+            android:textColor="@android:color/white" />
+
+        <RadioGroup
+            android:id="@+id/rgViz"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <RadioButton
+                android:id="@+id/rbVizVelocity"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:checked="true"
+                android:text="Velocity"
+                android:textColor="@android:color/white" />
+
+            <RadioButton
+                android:id="@+id/rbVizPressure"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Static Pressure"
+                android:textColor="@android:color/white" />
+
+            <RadioButton
+                android:id="@+id/rbVizTotal"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Total Pressure"
+                android:textColor="@android:color/white" />
+        </RadioGroup>
+
+        <Space
+            android:layout_width="match_parent"
+            android:layout_height="8dp" />
+
+        <androidx.appcompat.widget.SwitchCompat
+            android:id="@+id/swAbsolute"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Use Absolute Pressure (101.3 kPa base)"
+            android:textColor="@android:color/white" />
 
         <Space
             android:layout_width="match_parent"

@@ -14,11 +14,13 @@ class WindTunnelView @JvmOverloads constructor(
     attrs: AttributeSet? = null,
 ) : SurfaceView(context, attrs), SurfaceHolder.Callback, Runnable {
     enum class BrushShape { CIRCLE, SQUARE }
+    private data class ReinitParams(val w: Int, val h: Int)
     
     // High resolution supported natively by C++ OpenMP
     private var simWidth = 400
     private var simHeight = 200
     private var engine = NativeLBMEngine(simWidth, simHeight)
+    @Volatile private var pendingReinit: ReinitParams? = null
 
     private var thread: Thread? = null
     @Volatile private var running = false
@@ -30,11 +32,13 @@ class WindTunnelView @JvmOverloads constructor(
     private var lastTouchSimX = -1
     private var lastTouchSimY = -1
     private var currentRadius = 8
-    private val baseRadius = 8
     private val maxRadius = 60 // Stop growing so it doesn't block the whole tunnel
     
     var brushShape = BrushShape.CIRCLE
     var showDetailedTelemetry = true
+    var baseBrushSize = 8
+    var visualizationMode = NativeLBMEngine.VIZ_VELOCITY
+    var useAbsolutePressure = false
 
     // Telemetry
     private var lastTime = System.nanoTime()
@@ -44,6 +48,11 @@ class WindTunnelView @JvmOverloads constructor(
 
     private var bitmap = Bitmap.createBitmap(simWidth, simHeight, Bitmap.Config.ARGB_8888)
     private val paint = Paint().apply { isFilterBitmap = false } // Keep pixels sharp
+    
+    // Parameter Persistence
+    private var currentPhysVelocity = 30.0f
+    private var currentPhysDensity = 1.225f
+    private var currentPhysViscosity = 1.5e-5f
 
     private val textPaint = Paint().apply {
         color = Color.WHITE
@@ -91,7 +100,7 @@ class WindTunnelView @JvmOverloads constructor(
             MotionEvent.ACTION_DOWN -> {
                 performClick()
                 isHolding = true
-                currentRadius = baseRadius // Reset to starting size on a new tap
+                currentRadius = baseBrushSize // Reset to starting size on a new tap
                 touchSimX = (event.x / scaleX).toInt()
                 touchSimY = (event.y / scaleY).toInt()
                 lastTouchSimX = touchSimX
@@ -119,6 +128,22 @@ class WindTunnelView @JvmOverloads constructor(
 
     override fun run() {
         while (running) {
+            // Check for thread-safe re-initialization
+            pendingReinit?.let { params ->
+                simWidth = params.w
+                simHeight = params.h
+                bitmap = Bitmap.createBitmap(simWidth, simHeight, Bitmap.Config.ARGB_8888)
+                engine = NativeLBMEngine(simWidth, simHeight)
+                
+                // Re-apply persisted settings
+                engine.setInletVelocity(currentPhysVelocity)
+                engine.setDensity(currentPhysDensity)
+                engine.setViscosity(currentPhysViscosity)
+                engine.setVisualizationMode(visualizationMode)
+                
+                pendingReinit = null
+            }
+
             if (isHolding) {
                 val dx = (touchSimX - lastTouchSimX).toFloat()
                 val dy = (touchSimY - lastTouchSimY).toFloat()
@@ -126,10 +151,10 @@ class WindTunnelView @JvmOverloads constructor(
 
                 if (dist > 2.0) {
                     // Moved significantly: Act as a brush
-                    currentRadius = baseRadius
+                    currentRadius = baseBrushSize
                     
                     // Linear interpolation to fill gaps
-                    val steps = Math.ceil(dist / (baseRadius / 2.0)).toInt().coerceAtLeast(1)
+                    val steps = Math.ceil(dist / (baseBrushSize / 2.0)).toInt().coerceAtLeast(1)
                     for (i in 1..steps) {
                         val t = i.toFloat() / steps
                         val px = (lastTouchSimX + dx * t).toInt()
@@ -219,13 +244,13 @@ class WindTunnelView @JvmOverloads constructor(
     }
 
     private fun drawScaleBar(canvas: Canvas) {
-        val barWidth = 400f
-        val barHeight = 30f
+        val barWidth = 600f // Increased from 400f
+        val barHeight = 40f // Increased from 30f
         val margin = 50f
         
         val left = width - barWidth - margin
         val right = width - margin
-        val bottom = height - margin
+        val bottom = height - margin - 20f // Added some bottom padding for text clearance
         val top = bottom - barHeight
 
         // Create gradient if not already set or if width changed
@@ -244,18 +269,43 @@ class WindTunnelView @JvmOverloads constructor(
         canvas.drawRect(left, top, right, bottom, previewPaint)
 
         // Draw Labels
-        // Max vel for the heatmap is 1.8x inlet
-        val maxVelPhys = engine.getInletVelocity() * 1.8f
-        
-        // Left label (0)
-        canvas.drawText("0.0", left, top - 15f, scaleTextPaint)
-        
-        // Right label (Max)
-        val maxLabel = String.format(Locale.US, "%.1f m/s", maxVelPhys)
-        canvas.drawText(maxLabel, right, top - 15f, scaleTextPaint)
+        if (visualizationMode == NativeLBMEngine.VIZ_VELOCITY) {
+            // Velocity mode (Standard 0 to Max)
+            val maxVelPhys = engine.getInletVelocity() * 1.8f
+            canvas.drawText("0.0", left, top - 15f, scaleTextPaint)
+            val maxLabel = String.format(Locale.US, "%.1f m/s", maxVelPhys)
+            canvas.drawText(maxLabel, right, top - 15f, scaleTextPaint)
+        } else {
+            // Pressure mode (Relative deviation)
+            // LBM Pressure = rho * cs^2. Deviation = delta_rho * cs^2.
+            // Phys pressure = LBM_Pressure * rho_phys * (dx/dt)^2
+            // Our viz uses a range based on pressScale = 1 / (uIn^2 * 3).
+            // A deviation of 0.5 (full scale from center) maps to deltaP = 0.5 / pressScale.
+            val dx = engine.getDX()
+            val dt = 0.000005f 
+            val rhoPhys = engine.getDensity()
+            val uInPhys = engine.getInletVelocity()
+            val uInL = uInPhys * dt / dx
+            
+            // pressScale = 1 / (3 * uInL^2)
+            // fullScaleDeltaP (Lattice) = 0.5 / pressScale = 1.5 * uInL^2
+            // fullScaleDeltaP (Phys) = (1.5 * uInL^2) * rhoPhys * (dx/dt)^2
+            val maxDeltaP = 1.5f * (uInL * uInL) * rhoPhys * (dx / dt) * (dx / dt)
+            
+            val offset = if (useAbsolutePressure) 101325f else 0.0f
+            
+            canvas.drawText(String.format(Locale.US, "%.0f Pa", offset - maxDeltaP), left, top - 15f, scaleTextPaint)
+            canvas.drawText(String.format(Locale.US, "%.0f Pa", offset + maxDeltaP), right, top - 15f, scaleTextPaint)
+        }
         
         // Unit Label
-        canvas.drawText("Air Velocity", (left + right) / 2f, top - 15f, scaleTextPaint)
+        val label = when (visualizationMode) {
+            NativeLBMEngine.VIZ_VELOCITY -> "Air Velocity"
+            NativeLBMEngine.VIZ_PRESSURE -> if (useAbsolutePressure) "Static Pressure (Absolute)" else "Static Pressure (Gauge)"
+            NativeLBMEngine.VIZ_TOTAL_PRESSURE -> if (useAbsolutePressure) "Total Pressure (Absolute)" else "Total Pressure"
+            else -> "Fluid Map"
+        }
+        canvas.drawText(label, (left + right) / 2f, top - 15f, scaleTextPaint)
     }
 
     override fun surfaceCreated(holder: SurfaceHolder) {
@@ -274,23 +324,25 @@ class WindTunnelView @JvmOverloads constructor(
     }
 
     fun reinit(w: Int, h: Int) {
-        simWidth = w
-        simHeight = h
-        bitmap = Bitmap.createBitmap(simWidth, simHeight, Bitmap.Config.ARGB_8888)
-        engine = NativeLBMEngine(simWidth, simHeight)
+        pendingReinit = ReinitParams(w, h)
     }
 
     fun setAirflowSpeed(speed: Float) {
+        currentPhysVelocity = speed
         engine.setInletVelocity(speed)
     }
 
     fun setDensity(density: Float) {
+        currentPhysDensity = density
         engine.setDensity(density)
     }
 
     fun setViscosity(viscosity: Float) {
+        currentPhysViscosity = viscosity
         engine.setViscosity(viscosity)
     }
+
+    fun getAirflowSpeed(): Float = currentPhysVelocity
 
     fun getDensity(): Float {
         return engine.getDensity()
@@ -298,5 +350,10 @@ class WindTunnelView @JvmOverloads constructor(
 
     fun getViscosity(): Float {
         return engine.getViscosity()
+    }
+
+    fun updateVisualizationMode(mode: Int) {
+        visualizationMode = mode
+        engine.setVisualizationMode(mode)
     }
 }

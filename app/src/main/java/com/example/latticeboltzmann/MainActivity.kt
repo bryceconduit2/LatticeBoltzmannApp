@@ -32,18 +32,6 @@ class MainActivity : AppCompatActivity() {
             showSettingsMenu(windTunnelView)
         }
 
-        val sbAirflowSpeed = findViewById<SeekBar>(R.id.sbAirflowSpeed)
-        sbAirflowSpeed.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                // Map progress (0-200) to physical velocity (0.0 to 50.0 m/s)
-                val velocity = progress / 4.0f
-                windTunnelView.setAirflowSpeed(velocity)
-            }
-
-            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
-            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
-        })
-
         // Go Fullscreen
         WindowCompat.setDecorFitsSystemWindows(window, false)
         WindowInsetsControllerCompat(window, window.decorView).let { controller ->
@@ -59,14 +47,24 @@ class MainActivity : AppCompatActivity() {
         dialog.setContentView(view)
 
         val rgSize = view.findViewById<RadioGroup>(R.id.rgSize)
+        val sbSpeed = view.findViewById<SeekBar>(R.id.sbSpeed)
+        val tvSpeedValue = view.findViewById<TextView>(R.id.tvSpeedValue)
         val sbDensity = view.findViewById<SeekBar>(R.id.sbDensity)
         val tvDensityValue = view.findViewById<TextView>(R.id.tvDensityValue)
         val sbViscosity = view.findViewById<SeekBar>(R.id.sbViscosity)
         val tvViscosityValue = view.findViewById<TextView>(R.id.tvViscosityValue)
         val rgShape = view.findViewById<RadioGroup>(R.id.rgShape)
+        val sbBrushSize = view.findViewById<SeekBar>(R.id.sbBrushSize)
+        val tvBrushSizeValue = view.findViewById<TextView>(R.id.tvBrushSizeValue)
+        val rgViz = view.findViewById<RadioGroup>(R.id.rgViz)
         val swTelemetry = view.findViewById<SwitchCompat>(R.id.swTelemetry)
+        val swAbsolute = view.findViewById<SwitchCompat>(R.id.swAbsolute)
 
         // Initialize with current values
+        val currentSpeed = windTunnelView.getAirflowSpeed()
+        sbSpeed.progress = (currentSpeed * 4.0f).toInt()
+        tvSpeedValue.text = String.format(Locale.US, "%.1f m/s", currentSpeed)
+
         val currentDensity = windTunnelView.getDensity()
         sbDensity.progress = ((currentDensity - 0.5f) * 100.0f).toInt()
         tvDensityValue.text = String.format(Locale.US, "%.2f kg/m³", currentDensity)
@@ -74,6 +72,20 @@ class MainActivity : AppCompatActivity() {
         val currentViscosity = windTunnelView.getViscosity()
         sbViscosity.progress = (((currentViscosity - 1e-6f) / 9.9e-5f) * 100.0f).toInt()
         tvViscosityValue.text = String.format(Locale.US, "%.1e m²/s", currentViscosity)
+        
+        sbBrushSize.progress = windTunnelView.baseBrushSize
+        tvBrushSizeValue.text = String.format(Locale.US, "%d px", windTunnelView.baseBrushSize)
+        
+        when (windTunnelView.visualizationMode) {
+            NativeLBMEngine.VIZ_VELOCITY -> rgViz.check(R.id.rbVizVelocity)
+            NativeLBMEngine.VIZ_PRESSURE -> rgViz.check(R.id.rbVizPressure)
+            NativeLBMEngine.VIZ_TOTAL_PRESSURE -> rgViz.check(R.id.rbVizTotal)
+        }
+
+        swAbsolute.isChecked = windTunnelView.useAbsolutePressure
+        swAbsolute.setOnCheckedChangeListener { _, isChecked ->
+            windTunnelView.useAbsolutePressure = isChecked
+        }
 
         rgSize.setOnCheckedChangeListener { _, checkedId ->
             when (checkedId) {
@@ -82,6 +94,16 @@ class MainActivity : AppCompatActivity() {
                 R.id.rbLarge -> windTunnelView.reinit(600, 300)
             }
         }
+
+        sbSpeed.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                val velocity = progress / 4.0f
+                windTunnelView.setAirflowSpeed(velocity)
+                tvSpeedValue.text = String.format(Locale.US, "%.1f m/s", velocity)
+            }
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+        })
 
         sbDensity.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
@@ -110,6 +132,25 @@ class MainActivity : AppCompatActivity() {
                 R.id.rbCircle -> windTunnelView.brushShape = WindTunnelView.BrushShape.CIRCLE
                 R.id.rbSquare -> windTunnelView.brushShape = WindTunnelView.BrushShape.SQUARE
             }
+        }
+
+        sbBrushSize.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                windTunnelView.baseBrushSize = progress.coerceAtLeast(1)
+                tvBrushSizeValue.text = String.format(Locale.US, "%d px", progress.coerceAtLeast(1))
+            }
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+        })
+
+        rgViz.setOnCheckedChangeListener { _, checkedId ->
+            val mode = when (checkedId) {
+                R.id.rbVizVelocity -> NativeLBMEngine.VIZ_VELOCITY
+                R.id.rbVizPressure -> NativeLBMEngine.VIZ_PRESSURE
+                R.id.rbVizTotal -> NativeLBMEngine.VIZ_TOTAL_PRESSURE
+                else -> NativeLBMEngine.VIZ_VELOCITY
+            }
+            windTunnelView.updateVisualizationMode(mode)
         }
 
         swTelemetry.isChecked = windTunnelView.showDetailedTelemetry

@@ -29,28 +29,4 @@
             android:text="Reset" />
     </LinearLayout>
 
-    <LinearLayout
-        android:layout_width="300dp"
-        android:layout_height="wrap_content"
-        android:layout_gravity="bottom|start"
-        android:layout_margin="16dp"
-        android:background="#80000000"
-        android:orientation="vertical"
-        android:padding="8dp">
-
-        <TextView
-            android:id="@+id/tvSpeedLabel"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Airflow Speed"
-            android:textColor="@android:color/white" />
-
-        <SeekBar
-            android:id="@+id/sbAirflowSpeed"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:max="200"
-            android:progress="120" />
-    </LinearLayout>
-
 </FrameLayout>

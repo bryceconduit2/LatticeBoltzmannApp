@@ -29,9 +29,11 @@ inline uint32_t heatMapColor(float value) {
 }
 
 struct LBMEngine {
+    enum VisualizationMode { VELOCITY = 0, PRESSURE = 1, TOTAL_PRESSURE = 2 };
+
     int width, height;
-    float uInlet = 0.12f;
-    float uInletTarget = 0.12f;
+    float uInlet = 0.06f;
+    float uInletTarget = 0.06f;
     float omega = 1.0f / 0.55f;
     const float cs2 = 1.0f / 3.0f;
     const float SmagorinskyConstant = 0.16f;
@@ -48,11 +50,14 @@ struct LBMEngine {
     float dragSumAccumulator = 0.0f;
     int dragStepCount = 0;
 
+    VisualizationMode vizMode = VELOCITY;
+
     // Structure of Arrays (SoA) for better SIMD vectorization
     std::vector<float> f[9];
     std::vector<float> fNew[9];
     std::vector<uint8_t> obstacles;
     std::vector<float> velocityMag;
+    std::vector<float> visualizationSource; // Holds raw data for the heatmap (vel or press)
     std::vector<float> smoothedVelocityMag;
 
     uint32_t colorLUT[256];
@@ -84,6 +89,7 @@ struct LBMEngine {
         }
         obstacles.resize(size, 0);
         velocityMag.resize(size, 0.0f);
+        visualizationSource.resize(size, 0.0f);
         smoothedVelocityMag.resize(size, 0.0f);
 
         initFluid(uInlet);
@@ -135,14 +141,22 @@ struct LBMEngine {
             f_ptr[i] = f[i].data();
             fn_ptr[i] = fNew[i].data();
         }
+
         const uint8_t* __restrict__ obs = obstacles.data();
         float* __restrict__ vel = velocityMag.data();
+        float* __restrict__ viz = visualizationSource.data();
+        VisualizationMode mode = vizMode;
+        float uIn = uInlet;
+
+        // Dynamic scaling factor for pressure: range +/- 1.0 dynamic pressure units
+        // deltaP = 0.5 * rho * u^2. We scale so that uIn^2 deviation is full scale.
+        float pressScale = (uIn > 0.001f) ? (1.0f / (uIn * uIn * 3.0f)) : 100.0f;
 
         // ---------------------------------------------------------
         // PASS 1: INLET BOUNDARY (x = 0)
         // ---------------------------------------------------------
 #pragma omp parallel for schedule(static) default(none) \
-            shared(f_ptr, fn_ptr, obs, vel, width, height, uInlet, weights, cxs, opposite, CX, CY)
+            shared(f_ptr, fn_ptr, obs, vel, viz, width, height, uInlet, weights, cxs, opposite, CX, CY, mode, pressScale)
         for (int y = 0; y < height; y++) {
             int x = 0;
             int idx = y * width + x;
@@ -156,10 +170,22 @@ struct LBMEngine {
                     fn_ptr[i][idx] = f_ptr[opposite[i]][ny * width + nx];
                 }
                 vel[idx] = 0.0f;
+                viz[idx] = 0.0f;
             } else {
                 float ux = uInlet;
                 float uy = 0.0f;
                 vel[idx] = ux;
+
+                if (mode == VELOCITY) {
+                    viz[idx] = ux;
+                } else if (mode == PRESSURE) {
+                    viz[idx] = 0.5f; // Ambient pressure
+                } else {
+                    // Total pressure at inlet = Ps + 0.5*rho*u^2
+                    // ps deviation is 0. dynamic is 0.5*uIn^2.
+                    viz[idx] = 0.5f + (0.5f * ux * ux) * pressScale;
+                }
+
                 float usqr_in = 1.5f * (ux * ux);
 
 #pragma clang loop unroll(full)
@@ -174,8 +200,8 @@ struct LBMEngine {
         // PASS 2: MAIN FLUID DOMAIN (x = 1 to width-1)
         // ---------------------------------------------------------
 #pragma omp parallel for collapse(2) schedule(static) default(none) \
-            shared(f_ptr, fn_ptr, obs, vel, width, height, cs2, smagCoeff, inv2cs2, \
-                   tau_0, regFactor, weights, cxs, cys, opposite, cxx, cyy, cxy, CX, CY) \
+            shared(f_ptr, fn_ptr, obs, vel, viz, width, height, cs2, smagCoeff, inv2cs2, \
+                   tau_0, regFactor, weights, cxs, cys, opposite, cxx, cyy, cxy, CX, CY, mode, pressScale) \
             reduction(+:localDragX) reduction(min:stepMinY) reduction(max:stepMaxY)
         for (int y = 0; y < height; y++) {
             for (int x = 1; x < width; x++) {
@@ -205,6 +231,7 @@ struct LBMEngine {
                         fn_ptr[i][idx] = local_f[opposite[i]];
                     }
                     vel[idx] = 0.0f;
+                    viz[idx] = 0.0f;
 
                     if (y < stepMinY) stepMinY = y;
                     if (y > stepMaxY) stepMaxY = y;
@@ -239,6 +266,19 @@ struct LBMEngine {
                         vMag2 = 0.25f;
                     }
                     vel[idx] = vMag;
+
+                    if (mode == VELOCITY) {
+                        viz[idx] = vMag;
+                    } else if (mode == PRESSURE) {
+                        // Static Pressure = delta_rho * cs^2
+                        viz[idx] = 0.5f + ((rho - 1.0f) * cs2) * pressScale;
+                    } else {
+                        // Total Pressure = Static + Dynamic
+                        float staticP = (rho - 1.0f) * cs2;
+                        float dynamicP = 0.5f * rho * vMag2;
+                        viz[idx] = 0.5f + (staticP + dynamicP) * pressScale;
+                    }
+
                     float usqr = 1.5f * vMag2;
 
                     float pixx = 0.0f, pixy = 0.0f, piyy = 0.0f;
@@ -356,15 +396,21 @@ Java_com_example_latticeboltzmann_NativeLBMEngine_stepAndRenderNative(JNIEnv *en
         engine->dragForceNewtons = fabsf(avgLatticeForceX) * conversionFactor;
 
         // Accurate Non-dimensional Drag Coefficient (Cd)
-        // Calculated in lattice units to avoid unit errors: Cd = F_L / (0.5 * rho_L * u_L^2 * A_L)
         float uL = engine->uInlet;
-        float rhoL = 1.0f; // Standard LBM density
-        float areaL = engine->frontalArea / engine->dx; // Projected height in cells
+        float rhoL = 1.0f;
+        float areaL = engine->frontalArea / engine->dx;
 
         if (uL > 0.001f && areaL > 0.5f) {
             engine->dragCoefficient = fabsf(avgLatticeForceX) / (0.5f * rhoL * (uL * uL) * areaL);
         } else {
             engine->dragCoefficient = 0.0f;
+        }
+
+        // Debugging Drag Discrepancy
+        static int logCounter = 0;
+        if (++logCounter % 60 == 0) {
+            LOGI("Physics: FL=%.4f, Conv=%.1f, Fp=%.1f N, Area=%.3f, Cd=%.2f",
+                 avgLatticeForceX, conversionFactor, engine->dragForceNewtons, engine->frontalArea, engine->dragCoefficient);
         }
     }
 
@@ -387,18 +433,19 @@ Java_com_example_latticeboltzmann_NativeLBMEngine_stepAndRenderNative(JNIEnv *en
     };
 
     const uint8_t* __restrict__ obs = engine->obstacles.data();
-    const float* __restrict__ velMag = engine->velocityMag.data();
-    float* __restrict__ smoothVel = engine->smoothedVelocityMag.data();
+    const float* __restrict__ src = engine->visualizationSource.data();
+    float* __restrict__ smoothViz = engine->smoothedVelocityMag.data();
     const uint32_t* __restrict__ lut = engine->colorLUT;
+    const LBMEngine::VisualizationMode mode = engine->vizMode;
 
-#pragma omp parallel for default(none) shared(obs, velMag, smoothVel, bmpPixels, w, h, w_minus_1, h_minus_1, invMaxVel, invCount, lut) schedule(static)
+#pragma omp parallel for default(none) shared(obs, src, smoothViz, bmpPixels, w, h, w_minus_1, h_minus_1, invMaxVel, invCount, lut, mode) schedule(static)
     for (int y = 0; y < h; y++) {
         bool is_y_edge = (y == 0 || y == h_minus_1);
         for (int x = 0; x < w; x++) {
             int idx = y * w + x;
 
             if (obs[idx]) {
-                smoothVel[idx] = 0.0f;
+                smoothViz[idx] = 0.0f;
                 bmpPixels[idx] = 0xFFFFFFFF;
                 continue;
             }
@@ -416,7 +463,7 @@ Java_com_example_latticeboltzmann_NativeLBMEngine_stepAndRenderNative(JNIEnv *en
                             int nx = x + dx;
                             if (nx >= 0 && nx < w) {
                                 int nidx = ny * w + nx;
-                                sum += velMag[nidx];
+                                sum += src[nidx];
                                 count += (1 - obs[nidx]);
                             }
                         }
@@ -429,26 +476,31 @@ Java_com_example_latticeboltzmann_NativeLBMEngine_stepAndRenderNative(JNIEnv *en
                 int top = idx - w;
                 int bottom = idx + w;
 
-                sum += velMag[top - 1]; count += (1 - obs[top - 1]);
-                sum += velMag[top];     count += (1 - obs[top]);
-                sum += velMag[top + 1]; count += (1 - obs[top + 1]);
+                sum += src[top - 1]; count += (1 - obs[top - 1]);
+                sum += src[top];     count += (1 - obs[top]);
+                sum += src[top + 1]; count += (1 - obs[top + 1]);
 
-                sum += velMag[idx - 1]; count += (1 - obs[idx - 1]);
-                sum += velMag[idx];     count += (1 - obs[idx]);
-                sum += velMag[idx + 1]; count += (1 - obs[idx + 1]);
+                sum += src[idx - 1]; count += (1 - obs[idx - 1]);
+                sum += src[idx];     count += (1 - obs[idx]);
+                sum += src[idx + 1]; count += (1 - obs[idx + 1]);
 
-                sum += velMag[bottom - 1]; count += (1 - obs[bottom - 1]);
-                sum += velMag[bottom];     count += (1 - obs[bottom]);
-                sum += velMag[bottom + 1]; count += (1 - obs[bottom + 1]);
+                sum += src[bottom - 1]; count += (1 - obs[bottom - 1]);
+                sum += src[bottom];     count += (1 - obs[bottom]);
+                sum += src[bottom + 1]; count += (1 - obs[bottom + 1]);
 
                 spatialAvg = sum * invCount[count];
             }
 
-            float renderedV = smoothVel[idx] * 0.7f + spatialAvg * 0.3f;
-            smoothVel[idx] = renderedV;
+            float renderedV = smoothViz[idx] * 0.7f + spatialAvg * 0.3f;
+            smoothViz[idx] = renderedV;
 
             // Branchless LUT mapping
-            int colorIdx = (int)(renderedV * invMaxVel);
+            int colorIdx;
+            if (mode == LBMEngine::VELOCITY) {
+                colorIdx = (int)(renderedV * invMaxVel);
+            } else {
+                colorIdx = (int)(renderedV * 255.0f);
+            }
             colorIdx = std::max(0, std::min(255, colorIdx));
             bmpPixels[idx] = lut[colorIdx];
         }
@@ -508,4 +560,10 @@ Java_com_example_latticeboltzmann_NativeLBMEngine_getViscosityNative(JNIEnv *env
 extern "C" JNIEXPORT jfloat JNICALL
 Java_com_example_latticeboltzmann_NativeLBMEngine_getDXNative(JNIEnv *env, jobject thiz, jlong ptr) {
     return reinterpret_cast<LBMEngine*>(ptr)->dx;
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_example_latticeboltzmann_NativeLBMEngine_setVisualizationModeNative(JNIEnv *env, jobject thiz, jlong ptr, jint mode) {
+    auto* engine = reinterpret_cast<LBMEngine*>(ptr);
+    engine->vizMode = static_cast<LBMEngine::VisualizationMode>(mode);
 }

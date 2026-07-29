@@ -5,6 +5,12 @@ import android.graphics.Bitmap
 class NativeLBMEngine(val width: Int, val height: Int) {
     private var enginePtr: Long = 0
 
+    companion object {
+        const val VIZ_VELOCITY = 0
+        const val VIZ_PRESSURE = 1
+        const val VIZ_TOTAL_PRESSURE = 2
+    }
+
     init {
         android.util.Log.d("NativeLBMEngine", "Loading libomp.so...")
         try {
@@ -94,6 +100,12 @@ class NativeLBMEngine(val width: Int, val height: Int) {
         return if (enginePtr != 0L) getDXNative(enginePtr) else 0.0f
     }
 
+    fun setVisualizationMode(mode: Int) {
+        if (enginePtr != 0L) {
+            setVisualizationModeNative(enginePtr, mode)
+        }
+    }
+
     private external fun initEngine(width: Int, height: Int): Long
     private external fun stepAndRenderNative(ptr: Long, bitmap: Bitmap, steps: Int)
     private external fun addObstacleNative(ptr: Long, cx: Int, cy: Int, radius: Int)
@@ -102,6 +114,7 @@ class NativeLBMEngine(val width: Int, val height: Int) {
     private external fun setInletVelocityNative(ptr: Long, velocity: Float)
     private external fun setDensityNative(ptr: Long, density: Float)
     private external fun setViscosityNative(ptr: Long, viscosity: Float)
+    private external fun setVisualizationModeNative(ptr: Long, mode: Int)
     private external fun getInletVelocityNative(ptr: Long): Float
     private external fun getDragForceNative(ptr: Long): Float
     private external fun getDragCoefficientNative(ptr: Long): Float
