@@ -88,6 +88,18 @@ class NativeLBMEngine(val width: Int, val height: Int) {
         return if (enginePtr != 0L) getDragCoefficientNative(enginePtr) else 0.0f
     }
 
+    fun getLiftForce(): Float {
+        return if (enginePtr != 0L) getLiftForceNative(enginePtr) else 0.0f
+    }
+
+    fun getLiftCoefficient(): Float {
+        return if (enginePtr != 0L) getLiftCoefficientNative(enginePtr) else 0.0f
+    }
+
+    fun getTotalSteps(): Long {
+        return if (enginePtr != 0L) getTotalStepsNative(enginePtr) else 0L
+    }
+
     fun getDensity(): Float {
         return if (enginePtr != 0L) getDensityNative(enginePtr) else 0.0f
     }
@@ -118,6 +130,9 @@ class NativeLBMEngine(val width: Int, val height: Int) {
     private external fun getInletVelocityNative(ptr: Long): Float
     private external fun getDragForceNative(ptr: Long): Float
     private external fun getDragCoefficientNative(ptr: Long): Float
+    private external fun getLiftForceNative(ptr: Long): Float
+    private external fun getLiftCoefficientNative(ptr: Long): Float
+    private external fun getTotalStepsNative(ptr: Long): Long
     private external fun getDensityNative(ptr: Long): Float
     private external fun getViscosityNative(ptr: Long): Float
     private external fun getDXNative(ptr: Long): Float

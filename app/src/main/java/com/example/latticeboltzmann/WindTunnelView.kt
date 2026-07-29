@@ -211,10 +211,14 @@ class WindTunnelView @JvmOverloads constructor(
 
                 val currentVel = engine.getInletVelocity()
                 val dragN = engine.getDragForce()
-                val cd = engine.getDragCoefficient()
+                val dragCd = engine.getDragCoefficient()
+                val liftN = engine.getLiftForce()
+                val liftCl = engine.getLiftCoefficient()
+                val elapsedSeconds = engine.getTotalSteps() * 0.000005f
                 
-                canvas.drawText(String.format(Locale.US, "Velocity: %.1f m/s", currentVel), 30f, 80f, textPaint)
-                canvas.drawText(String.format(Locale.US, "Drag: %.2f N | Cd: %.2f", dragN, cd), 30f, 140f, textPaint)
+                canvas.drawText(String.format(Locale.US, "Velocity: %.1f m/s | Time: %.2fs", currentVel, elapsedSeconds), 30f, 80f, textPaint)
+                canvas.drawText(String.format(Locale.US, "Drag: %.2f N | Cd: %.2f", dragN, dragCd), 30f, 140f, textPaint)
+                canvas.drawText(String.format(Locale.US, "Lift: %.2f N | Cl: %.2f", liftN, liftCl), 30f, 200f, textPaint)
                 
                 if (showDetailedTelemetry) {
                     val dx = engine.getDX()
@@ -223,9 +227,9 @@ class WindTunnelView @JvmOverloads constructor(
                     val density = engine.getDensity()
                     val viscosity = engine.getViscosity()
 
-                    canvas.drawText(String.format(Locale.US, "Tunnel: %.1fm x %.1fm (1.0m Depth)", physW, physH), 30f, 200f, textPaint)
-                    canvas.drawText(String.format(Locale.US, "Density: %.2f kg/m³ | Visc: %.1e m²/s", density, viscosity), 30f, 260f, textPaint)
-                    canvas.drawText(String.format(Locale.US, "Performance: %.0f FPS | %.0f Steps/s", fps, sps), 30f, 320f, textPaint)
+                    canvas.drawText(String.format(Locale.US, "Tunnel: %.1fm x %.1fm (1.0m Depth)", physW, physH), 30f, 260f, textPaint)
+                    canvas.drawText(String.format(Locale.US, "Density: %.2f kg/m³ | Visc: %.1e m²/s", density, viscosity), 30f, 320f, textPaint)
+                    canvas.drawText(String.format(Locale.US, "Performance: %.0f FPS | %.0f Steps/s", fps, sps), 30f, 380f, textPaint)
                 }
 
                 drawScaleBar(canvas)
