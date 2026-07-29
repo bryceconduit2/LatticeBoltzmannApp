@@ -33,6 +33,12 @@ class NativeLBMEngine(val width: Int, val height: Int) {
         addObstacleNative(enginePtr, cx, cy, radius)
     }
 
+    fun addBoxObstacle(cx: Int, cy: Int, size: Int) {
+        if (enginePtr != 0L) {
+            addBoxObstacleNative(enginePtr, cx, cy, size)
+        }
+    }
+
     protected fun finalize() {
         if (enginePtr != 0L) {
             destroyEngine(enginePtr)
@@ -52,6 +58,18 @@ class NativeLBMEngine(val width: Int, val height: Int) {
         }
     }
 
+    fun setDensity(density: Float) {
+        if (enginePtr != 0L) {
+            setDensityNative(enginePtr, density)
+        }
+    }
+
+    fun setViscosity(viscosity: Float) {
+        if (enginePtr != 0L) {
+            setViscosityNative(enginePtr, viscosity)
+        }
+    }
+
     fun getInletVelocity(): Float {
         return if (enginePtr != 0L) getInletVelocityNative(enginePtr) else 0.0f
     }
@@ -60,12 +78,35 @@ class NativeLBMEngine(val width: Int, val height: Int) {
         return if (enginePtr != 0L) getDragForceNative(enginePtr) else 0.0f
     }
 
+    fun getDragCoefficient(): Float {
+        return if (enginePtr != 0L) getDragCoefficientNative(enginePtr) else 0.0f
+    }
+
+    fun getDensity(): Float {
+        return if (enginePtr != 0L) getDensityNative(enginePtr) else 0.0f
+    }
+
+    fun getViscosity(): Float {
+        return if (enginePtr != 0L) getViscosityNative(enginePtr) else 0.0f
+    }
+
+    fun getDX(): Float {
+        return if (enginePtr != 0L) getDXNative(enginePtr) else 0.0f
+    }
+
     private external fun initEngine(width: Int, height: Int): Long
     private external fun stepAndRenderNative(ptr: Long, bitmap: Bitmap, steps: Int)
     private external fun addObstacleNative(ptr: Long, cx: Int, cy: Int, radius: Int)
+    private external fun addBoxObstacleNative(ptr: Long, cx: Int, cy: Int, size: Int)
     private external fun resetSimulationNative(ptr: Long)
     private external fun setInletVelocityNative(ptr: Long, velocity: Float)
+    private external fun setDensityNative(ptr: Long, density: Float)
+    private external fun setViscosityNative(ptr: Long, viscosity: Float)
     private external fun getInletVelocityNative(ptr: Long): Float
     private external fun getDragForceNative(ptr: Long): Float
+    private external fun getDragCoefficientNative(ptr: Long): Float
+    private external fun getDensityNative(ptr: Long): Float
+    private external fun getViscosityNative(ptr: Long): Float
+    private external fun getDXNative(ptr: Long): Float
     private external fun destroyEngine(ptr: Long)
 }

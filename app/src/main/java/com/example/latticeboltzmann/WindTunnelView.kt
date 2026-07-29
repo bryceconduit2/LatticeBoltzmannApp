@@ -13,10 +13,12 @@ class WindTunnelView @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null,
 ) : SurfaceView(context, attrs), SurfaceHolder.Callback, Runnable {
+    enum class BrushShape { CIRCLE, SQUARE }
+    
     // High resolution supported natively by C++ OpenMP
-    private val simWidth = 400
-    private val simHeight = 200
-    private val engine = NativeLBMEngine(simWidth, simHeight)
+    private var simWidth = 400
+    private var simHeight = 200
+    private var engine = NativeLBMEngine(simWidth, simHeight)
 
     private var thread: Thread? = null
     @Volatile private var running = false
@@ -30,6 +32,9 @@ class WindTunnelView @JvmOverloads constructor(
     private var currentRadius = 8
     private val baseRadius = 8
     private val maxRadius = 60 // Stop growing so it doesn't block the whole tunnel
+    
+    var brushShape = BrushShape.CIRCLE
+    var showDetailedTelemetry = true
 
     // Telemetry
     private var lastTime = System.nanoTime()
@@ -37,7 +42,7 @@ class WindTunnelView @JvmOverloads constructor(
     private var sps = 0.0
     private val stepsPerFrame = 20
 
-    private val bitmap = Bitmap.createBitmap(simWidth, simHeight, Bitmap.Config.ARGB_8888)
+    private var bitmap = Bitmap.createBitmap(simWidth, simHeight, Bitmap.Config.ARGB_8888)
     private val paint = Paint().apply { isFilterBitmap = false } // Keep pixels sharp
 
     private val textPaint = Paint().apply {
@@ -129,7 +134,7 @@ class WindTunnelView @JvmOverloads constructor(
                         val t = i.toFloat() / steps
                         val px = (lastTouchSimX + dx * t).toInt()
                         val py = (lastTouchSimY + dy * t).toInt()
-                        engine.addObstacle(px, py, currentRadius)
+                        addObstacleToEngine(px, py, currentRadius)
                     }
                 } else {
                     // Stationary: Grow the current point faster
@@ -137,7 +142,7 @@ class WindTunnelView @JvmOverloads constructor(
                         currentRadius += 2 // Increased growth speed
                         if (currentRadius > maxRadius) currentRadius = maxRadius
                     }
-                    engine.addObstacle(touchSimX, touchSimY, currentRadius)
+                    addObstacleToEngine(touchSimX, touchSimY, currentRadius)
                 }
                 
                 lastTouchSimX = touchSimX
@@ -160,30 +165,56 @@ class WindTunnelView @JvmOverloads constructor(
             if (canvas != null) {
                 canvas.drawBitmap(bitmap, null, Rect(0, 0, width, height), paint)
                 
-                // Draw a visual preview of the growing circle
+                // Draw a visual preview of the growing shape
                 if (isHolding) {
                     val scaleX = width.toFloat() / simWidth
                     val scaleY = height.toFloat() / simHeight
-                    canvas.drawCircle(
-                        touchSimX * scaleX, 
-                        touchSimY * scaleY, 
-                        currentRadius * scaleX, 
-                        previewPaint
-                    )
+                    if (brushShape == BrushShape.CIRCLE) {
+                        canvas.drawCircle(
+                            touchSimX * scaleX, 
+                            touchSimY * scaleY, 
+                            currentRadius * scaleX, 
+                            previewPaint
+                        )
+                    } else {
+                        val r = currentRadius * scaleX
+                        val cx = touchSimX * scaleX
+                        val cy = touchSimY * scaleY
+                        canvas.drawRect(cx - r, cy - r, cx + r, cy + r, previewPaint)
+                    }
                 }
 
                 val currentVel = engine.getInletVelocity()
                 val dragN = engine.getDragForce()
+                val cd = engine.getDragCoefficient()
                 
                 canvas.drawText(String.format(Locale.US, "Velocity: %.1f m/s", currentVel), 30f, 80f, textPaint)
-                canvas.drawText(String.format(Locale.US, "Drag: %.2f N", dragN), 30f, 140f, textPaint)
-                canvas.drawText("Tunnel: 1.0m x 0.5m x 1.0m", 30f, 200f, textPaint)
-                canvas.drawText(String.format(Locale.US, "Performance: %.0f FPS | %.0f Steps/s", fps, sps), 30f, 260f, textPaint)
+                canvas.drawText(String.format(Locale.US, "Drag: %.2f N | Cd: %.2f", dragN, cd), 30f, 140f, textPaint)
+                
+                if (showDetailedTelemetry) {
+                    val dx = engine.getDX()
+                    val physW = simWidth * dx
+                    val physH = simHeight * dx
+                    val density = engine.getDensity()
+                    val viscosity = engine.getViscosity()
+
+                    canvas.drawText(String.format(Locale.US, "Tunnel: %.1fm x %.1fm (1.0m Depth)", physW, physH), 30f, 200f, textPaint)
+                    canvas.drawText(String.format(Locale.US, "Density: %.2f kg/m³ | Visc: %.1e m²/s", density, viscosity), 30f, 260f, textPaint)
+                    canvas.drawText(String.format(Locale.US, "Performance: %.0f FPS | %.0f Steps/s", fps, sps), 30f, 320f, textPaint)
+                }
 
                 drawScaleBar(canvas)
                 
                 holder.unlockCanvasAndPost(canvas)
             }
+        }
+    }
+
+    private fun addObstacleToEngine(x: Int, y: Int, radius: Int) {
+        if (brushShape == BrushShape.CIRCLE) {
+            engine.addObstacle(x, y, radius)
+        } else {
+            engine.addBoxObstacle(x, y, radius * 2)
         }
     }
 
@@ -242,7 +273,30 @@ class WindTunnelView @JvmOverloads constructor(
         engine.resetSimulation()
     }
 
+    fun reinit(w: Int, h: Int) {
+        simWidth = w
+        simHeight = h
+        bitmap = Bitmap.createBitmap(simWidth, simHeight, Bitmap.Config.ARGB_8888)
+        engine = NativeLBMEngine(simWidth, simHeight)
+    }
+
     fun setAirflowSpeed(speed: Float) {
         engine.setInletVelocity(speed)
+    }
+
+    fun setDensity(density: Float) {
+        engine.setDensity(density)
+    }
+
+    fun setViscosity(viscosity: Float) {
+        engine.setViscosity(viscosity)
+    }
+
+    fun getDensity(): Float {
+        return engine.getDensity()
+    }
+
+    fun getViscosity(): Float {
+        return engine.getViscosity()
     }
 }
