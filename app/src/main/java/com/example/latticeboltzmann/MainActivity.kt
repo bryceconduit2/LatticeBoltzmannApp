@@ -23,6 +23,11 @@ class MainActivity : AppCompatActivity() {
         val windTunnelView = findViewById<WindTunnelView>(R.id.windTunnelView)
         val btnReset = findViewById<Button>(R.id.btnReset)
         val btnSettings = findViewById<Button>(R.id.btnSettings)
+        val btnGraph = findViewById<Button>(R.id.btnGraph)
+        
+        val graphContainer = findViewById<android.view.ViewGroup>(R.id.graphContainer)
+        val forceGraphView = findViewById<ForceGraphView>(R.id.forceGraphView)
+        val btnCloseGraph = findViewById<Button>(R.id.btnCloseGraph)
 
         btnReset.setOnClickListener {
             windTunnelView.reset()
@@ -30,6 +35,15 @@ class MainActivity : AppCompatActivity() {
 
         btnSettings.setOnClickListener {
             showSettingsMenu(windTunnelView)
+        }
+        
+        btnGraph.setOnClickListener {
+            graphContainer.visibility = android.view.View.VISIBLE
+            updateGraphLoop(windTunnelView, forceGraphView, graphContainer)
+        }
+
+        btnCloseGraph.setOnClickListener {
+            graphContainer.visibility = android.view.View.GONE
         }
 
         // Go Fullscreen
@@ -159,5 +173,18 @@ class MainActivity : AppCompatActivity() {
         }
 
         dialog.show()
+    }
+
+    private fun updateGraphLoop(
+        windTunnelView: WindTunnelView,
+        forceGraphView: ForceGraphView,
+        container: android.view.View
+    ) {
+        if (container.visibility == android.view.View.VISIBLE) {
+            forceGraphView.updateData(windTunnelView.getForceHistory())
+            container.postDelayed({
+                updateGraphLoop(windTunnelView, forceGraphView, container)
+            }, 100) // Update every 100ms
+        }
     }
 }

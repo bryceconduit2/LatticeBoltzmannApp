@@ -53,6 +53,9 @@ class WindTunnelView @JvmOverloads constructor(
     private var currentPhysVelocity = 30.0f
     private var currentPhysDensity = 1.225f
     private var currentPhysViscosity = 1.5e-5f
+    
+    private val forceHistory = mutableListOf<ForceGraphView.ForcePoint>()
+    private val maxHistorySize = 500
 
     private val textPaint = Paint().apply {
         color = Color.WHITE
@@ -185,6 +188,18 @@ class WindTunnelView @JvmOverloads constructor(
 
             // Execute physics steps natively before rendering
             engine.stepAndRender(bitmap, stepsPerFrame)
+            
+            // Collect data for the graph
+            val elapsedSec = engine.getTotalSteps() * 0.000005f
+            val dragN = engine.getDragForce()
+            val liftN = engine.getLiftForce()
+            
+            synchronized(forceHistory) {
+                forceHistory.add(ForceGraphView.ForcePoint(elapsedSec, dragN, liftN))
+                if (forceHistory.size > maxHistorySize) {
+                    forceHistory.removeAt(0)
+                }
+            }
 
             val canvas = holder.lockCanvas()
             if (canvas != null) {
@@ -316,6 +331,9 @@ class WindTunnelView @JvmOverloads constructor(
     }
     fun reset() {
         engine.resetSimulation()
+        synchronized(forceHistory) {
+            forceHistory.clear()
+        }
     }
 
     fun reinit(w: Int, h: Int) {
@@ -350,5 +368,11 @@ class WindTunnelView @JvmOverloads constructor(
     fun updateVisualizationMode(mode: Int) {
         visualizationMode = mode
         engine.setVisualizationMode(mode)
+    }
+
+    fun getForceHistory(): List<ForceGraphView.ForcePoint> {
+        return synchronized(forceHistory) {
+            forceHistory.toList()
+        }
     }
 }

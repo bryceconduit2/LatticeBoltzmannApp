@@ -16,6 +16,13 @@
         android:orientation="horizontal">
 
         <Button
+            android:id="@+id/btnGraph"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="8dp"
+            android:text="Graph" />
+
+        <Button
             android:id="@+id/btnSettings"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -28,5 +35,28 @@
             android:layout_height="wrap_content"
             android:text="Reset" />
     </LinearLayout>
+
+    <!-- Graph Overlay Container -->
+    <FrameLayout
+        android:id="@+id/graphContainer"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#E0000000"
+        android:visibility="gone">
+
+        <com.example.latticeboltzmann.ForceGraphView
+            android:id="@+id/forceGraphView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_margin="40dp" />
+
+        <Button
+            android:id="@+id/btnCloseGraph"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top|end"
+            android:layout_margin="16dp"
+            android:text="Close" />
+    </FrameLayout>
 
 </FrameLayout>
