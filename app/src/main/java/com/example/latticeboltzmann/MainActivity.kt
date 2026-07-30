@@ -28,6 +28,7 @@ class MainActivity : AppCompatActivity() {
         val graphContainer = findViewById<android.view.ViewGroup>(R.id.graphContainer)
         val forceGraphView = findViewById<ForceGraphView>(R.id.forceGraphView)
         val btnCloseGraph = findViewById<Button>(R.id.btnCloseGraph)
+        val rgGraphMode = findViewById<RadioGroup>(R.id.rgGraphMode)
 
         btnReset.setOnClickListener {
             windTunnelView.reset()
@@ -44,6 +45,14 @@ class MainActivity : AppCompatActivity() {
 
         btnCloseGraph.setOnClickListener {
             graphContainer.visibility = android.view.View.GONE
+        }
+
+        rgGraphMode.setOnCheckedChangeListener { _, checkedId ->
+            forceGraphView.displayMode = if (checkedId == R.id.rbModeForce) {
+                ForceGraphView.DisplayMode.FORCE
+            } else {
+                ForceGraphView.DisplayMode.COEFFICIENT
+            }
         }
 
         // Go Fullscreen
@@ -71,8 +80,12 @@ class MainActivity : AppCompatActivity() {
         val sbBrushSize = view.findViewById<SeekBar>(R.id.sbBrushSize)
         val tvBrushSizeValue = view.findViewById<TextView>(R.id.tvBrushSizeValue)
         val rgViz = view.findViewById<RadioGroup>(R.id.rgViz)
+        val rgBoundary = view.findViewById<RadioGroup>(R.id.rgBoundary)
         val swTelemetry = view.findViewById<SwitchCompat>(R.id.swTelemetry)
         val swAbsolute = view.findViewById<SwitchCompat>(R.id.swAbsolute)
+        val swGridlines = view.findViewById<SwitchCompat>(R.id.swGridlines)
+        val sbAoA = view.findViewById<SeekBar>(R.id.sbAoA)
+        val tvAoAValue = view.findViewById<TextView>(R.id.tvAoAValue)
 
         // Initialize with current values
         val currentSpeed = windTunnelView.getAirflowSpeed()
@@ -89,6 +102,9 @@ class MainActivity : AppCompatActivity() {
         
         sbBrushSize.progress = windTunnelView.baseBrushSize
         tvBrushSizeValue.text = String.format(Locale.US, "%d px", windTunnelView.baseBrushSize)
+
+        sbAoA.progress = (windTunnelView.airfoilAoA + 20).toInt()
+        tvAoAValue.text = String.format(Locale.US, "%.0f°", windTunnelView.airfoilAoA)
         
         when (windTunnelView.visualizationMode) {
             NativeLBMEngine.VIZ_VELOCITY -> rgViz.check(R.id.rbVizVelocity)
@@ -96,9 +112,41 @@ class MainActivity : AppCompatActivity() {
             NativeLBMEngine.VIZ_TOTAL_PRESSURE -> rgViz.check(R.id.rbVizTotal)
         }
 
+        when (windTunnelView.boundaryMode) {
+            NativeLBMEngine.BND_PERIODIC -> rgBoundary.check(R.id.rbBndPeriodic)
+            NativeLBMEngine.BND_NO_SLIP -> rgBoundary.check(R.id.rbBndNoSlip)
+            NativeLBMEngine.BND_FREE_SLIP -> rgBoundary.check(R.id.rbBndFreeSlip)
+        }
+
+        when (windTunnelView.brushShape) {
+            WindTunnelView.BrushShape.CIRCLE -> rgShape.check(R.id.rbCircle)
+            WindTunnelView.BrushShape.SQUARE -> rgShape.check(R.id.rbSquare)
+            WindTunnelView.BrushShape.NACA0012 -> rgShape.check(R.id.rbNaca0012)
+            WindTunnelView.BrushShape.NACA4412 -> rgShape.check(R.id.rbNaca4412)
+        }
+
+        // Initialize Tunnel Size selection based on current width
+        // Small=200, Medium=400, Large=600
+        val currentSimWidth = windTunnelView.getSimWidth()
+        when (currentSimWidth) {
+            200 -> rgSize.check(R.id.rbSmall)
+            400 -> rgSize.check(R.id.rbMedium)
+            600 -> rgSize.check(R.id.rbLarge)
+        }
+
         swAbsolute.isChecked = windTunnelView.useAbsolutePressure
         swAbsolute.setOnCheckedChangeListener { _, isChecked ->
             windTunnelView.useAbsolutePressure = isChecked
+        }
+
+        rgBoundary.setOnCheckedChangeListener { _, checkedId ->
+            val mode = when (checkedId) {
+                R.id.rbBndPeriodic -> NativeLBMEngine.BND_PERIODIC
+                R.id.rbBndNoSlip -> NativeLBMEngine.BND_NO_SLIP
+                R.id.rbBndFreeSlip -> NativeLBMEngine.BND_FREE_SLIP
+                else -> NativeLBMEngine.BND_PERIODIC
+            }
+            windTunnelView.updateBoundaryMode(mode)
         }
 
         rgSize.setOnCheckedChangeListener { _, checkedId ->
@@ -145,6 +193,8 @@ class MainActivity : AppCompatActivity() {
             when (checkedId) {
                 R.id.rbCircle -> windTunnelView.brushShape = WindTunnelView.BrushShape.CIRCLE
                 R.id.rbSquare -> windTunnelView.brushShape = WindTunnelView.BrushShape.SQUARE
+                R.id.rbNaca0012 -> windTunnelView.brushShape = WindTunnelView.BrushShape.NACA0012
+                R.id.rbNaca4412 -> windTunnelView.brushShape = WindTunnelView.BrushShape.NACA4412
             }
         }
 
@@ -152,6 +202,16 @@ class MainActivity : AppCompatActivity() {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 windTunnelView.baseBrushSize = progress.coerceAtLeast(1)
                 tvBrushSizeValue.text = String.format(Locale.US, "%d px", progress.coerceAtLeast(1))
+            }
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+        })
+
+        sbAoA.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                val aoa = progress - 20f
+                windTunnelView.airfoilAoA = aoa
+                tvAoAValue.text = String.format(Locale.US, "%.0f°", aoa)
             }
             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
             override fun onStopTrackingTouch(seekBar: SeekBar?) {}
@@ -170,6 +230,11 @@ class MainActivity : AppCompatActivity() {
         swTelemetry.isChecked = windTunnelView.showDetailedTelemetry
         swTelemetry.setOnCheckedChangeListener { _, isChecked ->
             windTunnelView.showDetailedTelemetry = isChecked
+        }
+
+        swGridlines.isChecked = windTunnelView.showGridlines
+        swGridlines.setOnCheckedChangeListener { _, isChecked ->
+            windTunnelView.showGridlines = isChecked
         }
 
         dialog.show()

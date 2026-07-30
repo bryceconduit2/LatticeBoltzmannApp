@@ -154,7 +154,7 @@
             android:id="@+id/rgShape"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal">
+            android:orientation="vertical">
 
             <RadioButton
                 android:id="@+id/rbCircle"
@@ -170,7 +170,52 @@
                 android:layout_height="wrap_content"
                 android:text="Square"
                 android:textColor="@android:color/white" />
+
+            <RadioButton
+                android:id="@+id/rbNaca0012"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="NACA 0012 Brush"
+                android:textColor="@android:color/white" />
+
+            <RadioButton
+                android:id="@+id/rbNaca4412"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="NACA 4412 Brush"
+                android:textColor="@android:color/white" />
         </RadioGroup>
+
+        <Space
+            android:layout_width="match_parent"
+            android:layout_height="16dp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Angle of Attack"
+                android:textColor="@android:color/white" />
+
+            <TextView
+                android:id="@+id/tvAoAValue"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="0°"
+                android:textColor="@android:color/white" />
+        </LinearLayout>
+
+        <SeekBar
+            android:id="@+id/sbAoA"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:max="40"
+            android:progress="20" />
 
         <Space
             android:layout_width="match_parent"
@@ -257,6 +302,45 @@
             android:layout_width="match_parent"
             android:layout_height="16dp" />
 
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Top/Bottom Boundaries"
+            android:textColor="@android:color/white" />
+
+        <RadioGroup
+            android:id="@+id/rgBoundary"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <RadioButton
+                android:id="@+id/rbBndPeriodic"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:checked="true"
+                android:text="Periodic (Wraparound)"
+                android:textColor="@android:color/white" />
+
+            <RadioButton
+                android:id="@+id/rbBndNoSlip"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="No-Slip Wall (Friction)"
+                android:textColor="@android:color/white" />
+
+            <RadioButton
+                android:id="@+id/rbBndFreeSlip"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Free-Slip (Mirror/Symmetry)"
+                android:textColor="@android:color/white" />
+        </RadioGroup>
+
+        <Space
+            android:layout_width="match_parent"
+            android:layout_height="16dp" />
+
         <androidx.appcompat.widget.SwitchCompat
             android:id="@+id/swTelemetry"
             android:layout_width="match_parent"
@@ -264,6 +348,30 @@
             android:checked="true"
             android:text="Show Detailed Telemetry"
             android:textColor="@android:color/white" />
+
+        <Space
+            android:layout_width="match_parent"
+            android:layout_height="8dp" />
+
+        <androidx.appcompat.widget.SwitchCompat
+            android:id="@+id/swGridlines"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Show Reference Grid (10cm)"
+            android:textColor="@android:color/white" />
+
+        <Space
+            android:layout_width="match_parent"
+            android:layout_height="32dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Educational Disclaimer:\nThis app is to be used as an educational tool only and not be relied upon for any design calculations. Please allow the flow to stabilise before reading any results, turbulence can cause significant fluctuations."
+            android:textColor="#A0FFFFFF"
+            android:textSize="12sp"
+            android:textStyle="italic"
+            android:gravity="center" />
 
     </LinearLayout>
 </ScrollView>

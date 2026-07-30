@@ -9,6 +9,10 @@ class NativeLBMEngine(val width: Int, val height: Int) {
         const val VIZ_VELOCITY = 0
         const val VIZ_PRESSURE = 1
         const val VIZ_TOTAL_PRESSURE = 2
+
+        const val BND_PERIODIC = 0
+        const val BND_NO_SLIP = 1
+        const val BND_FREE_SLIP = 2
     }
 
     init {
@@ -42,6 +46,12 @@ class NativeLBMEngine(val width: Int, val height: Int) {
     fun addBoxObstacle(cx: Int, cy: Int, size: Int) {
         if (enginePtr != 0L) {
             addBoxObstacleNative(enginePtr, cx, cy, size)
+        }
+    }
+
+    fun addNacaAirfoil(cx: Int, cy: Int, chord: Int, m: Float, p: Float, t: Float, angle: Float) {
+        if (enginePtr != 0L) {
+            addNacaAirfoilNative(enginePtr, cx, cy, chord, m, p, t, angle)
         }
     }
 
@@ -118,15 +128,23 @@ class NativeLBMEngine(val width: Int, val height: Int) {
         }
     }
 
+    fun setBoundaryMode(mode: Int) {
+        if (enginePtr != 0L) {
+            setBoundaryModeNative(enginePtr, mode)
+        }
+    }
+
     private external fun initEngine(width: Int, height: Int): Long
     private external fun stepAndRenderNative(ptr: Long, bitmap: Bitmap, steps: Int)
     private external fun addObstacleNative(ptr: Long, cx: Int, cy: Int, radius: Int)
     private external fun addBoxObstacleNative(ptr: Long, cx: Int, cy: Int, size: Int)
+    private external fun addNacaAirfoilNative(ptr: Long, cx: Int, cy: Int, chord: Int, m: Float, p: Float, t: Float, angle: Float)
     private external fun resetSimulationNative(ptr: Long)
     private external fun setInletVelocityNative(ptr: Long, velocity: Float)
     private external fun setDensityNative(ptr: Long, density: Float)
     private external fun setViscosityNative(ptr: Long, viscosity: Float)
     private external fun setVisualizationModeNative(ptr: Long, mode: Int)
+    private external fun setBoundaryModeNative(ptr: Long, mode: Int)
     private external fun getInletVelocityNative(ptr: Long): Float
     private external fun getDragForceNative(ptr: Long): Float
     private external fun getDragCoefficientNative(ptr: Long): Float

@@ -11,7 +11,10 @@ class ForceGraphView @JvmOverloads constructor(
     attrs: AttributeSet? = null,
 ) : View(context, attrs) {
 
-    data class ForcePoint(val time: Float, val drag: Float, val lift: Float)
+    enum class DisplayMode { FORCE, COEFFICIENT }
+    var displayMode = DisplayMode.FORCE
+    
+    data class ForcePoint(val time: Float, val drag: Float, val lift: Float, val cd: Float, val cl: Float)
     private var history = listOf<ForcePoint>()
 
     private val dragPaint = Paint().apply {
@@ -40,6 +43,13 @@ class ForceGraphView @JvmOverloads constructor(
         isAntiAlias = true
     }
 
+    private val zeroLinePaint = Paint().apply {
+        color = Color.WHITE
+        alpha = 150
+        strokeWidth = 3f
+        pathEffect = DashPathEffect(floatArrayOf(10f, 10f), 0f)
+    }
+
     private val dragPath = Path()
     private val liftPath = Path()
 
@@ -56,14 +66,20 @@ class ForceGraphView @JvmOverloads constructor(
         val graphWidth = width - 2 * padding
         val graphHeight = height - 2 * padding
 
-        // Find scale ranges
-        var minF = 0f
-        var maxF = 10f // Baseline
+        // Find scale ranges based on display mode
+        var minVal = 0f
+        var maxVal = if (displayMode == DisplayMode.FORCE) 10f else 2f
+        
         history.forEach {
-            maxF = maxOf(maxF, it.drag, it.lift)
-            minF = minOf(minF, it.drag, it.lift)
+            if (displayMode == DisplayMode.FORCE) {
+                maxVal = maxOf(maxVal, it.drag, it.lift)
+                minVal = minOf(minVal, it.drag, it.lift)
+            } else {
+                maxVal = maxOf(maxVal, it.cd, it.cl)
+                minVal = minOf(minVal, it.cd, it.cl)
+            }
         }
-        val rangeF = (maxF - minF).coerceAtLeast(1f)
+        val rangeVal = (maxVal - minVal).coerceAtLeast(0.001f)
         
         val minTime = history.first().time
         val maxTime = history.last().time
@@ -75,11 +91,19 @@ class ForceGraphView @JvmOverloads constructor(
 
         // Draw horizontal grid lines and labels
         val gridLines = 5
+        val unitLabel = if (displayMode == DisplayMode.FORCE) "N" else ""
+        
         for (i in 0..gridLines) {
             val y = height - padding - (i.toFloat() / gridLines) * graphHeight
-            val value = minF + (i.toFloat() / gridLines) * rangeF
+            val value = minVal + (i.toFloat() / gridLines) * rangeVal
             canvas.drawLine(padding, y, width - padding, y, gridPaint)
-            canvas.drawText(String.format(Locale.US, "%.0f N", value), 10f, y + 10f, textPaint)
+            
+            val labelText = if (displayMode == DisplayMode.FORCE) {
+                String.format(Locale.US, "%.0f %s", value, unitLabel)
+            } else {
+                String.format(Locale.US, "%.2f", value)
+            }
+            canvas.drawText(labelText, 10f, y + 10f, textPaint)
         }
 
         // Draw vertical grid lines and time labels
@@ -91,14 +115,24 @@ class ForceGraphView @JvmOverloads constructor(
             canvas.drawText(String.format(Locale.US, "%.3fs", timeValue), x - 40f, height - padding + 40f, textPaint)
         }
 
+        // Draw Zero Reference Line
+        if (minVal <= 0f && maxVal >= 0f) {
+            val yZero = height - padding - ((0f - minVal) / rangeVal) * graphHeight
+            canvas.drawLine(padding, yZero, width - padding, yZero, zeroLinePaint)
+        }
+
         // Prepare Paths
         dragPath.reset()
         liftPath.reset()
 
         history.forEachIndexed { i, pt ->
             val x = padding + ((pt.time - minTime) / rangeTime) * graphWidth
-            val yDrag = height - padding - ((pt.drag - minF) / rangeF) * graphHeight
-            val yLift = height - padding - ((pt.lift - minF) / rangeF) * graphHeight
+            
+            val vDrag = if (displayMode == DisplayMode.FORCE) pt.drag else pt.cd
+            val vLift = if (displayMode == DisplayMode.FORCE) pt.lift else pt.cl
+            
+            val yDrag = height - padding - ((vDrag - minVal) / rangeVal) * graphHeight
+            val yLift = height - padding - ((vLift - minVal) / rangeVal) * graphHeight
 
             if (i == 0) {
                 dragPath.moveTo(x, yDrag)
@@ -112,19 +146,54 @@ class ForceGraphView @JvmOverloads constructor(
         canvas.drawPath(dragPath, dragPaint)
         canvas.drawPath(liftPath, liftPaint)
 
+        // Calculate averages - skipping the first 0.05s of simulation time to allow settling
+        var sumDrag = 0f
+        var sumLift = 0f
+        var sumCd = 0f
+        var sumCl = 0f
+        var count = 0
+        
+        history.forEach {
+            if (it.time > 0.05f) {
+                sumDrag += it.drag
+                sumLift += it.lift
+                sumCd += it.cd
+                sumCl += it.cl
+                count++
+            }
+        }
+        
+        val avgDrag = if (count > 0) sumDrag / count else 0f
+        val avgLift = if (count > 0) sumLift / count else 0f
+        val avgCd = if (count > 0) sumCd / count else 0f
+        val avgCl = if (count > 0) sumCl / count else 0f
+
         // Legend - With clearer labels and indicators
         val legendY = padding - 40f
+        val modeLabel = if (displayMode == DisplayMode.FORCE) "Forces" else "Coefficients"
         
-        // Drag Indicator
-        val dragText = "Drag (Red)"
-        canvas.drawText(dragText, padding, legendY, textPaint)
-        canvas.drawLine(padding, legendY + 10f, padding + 150f, legendY + 10f, dragPaint)
+        val displayDrag: String
+        val displayLift: String
         
-        // Lift Indicator
-        val liftText = "Lift (Cyan)"
-        canvas.drawText(liftText, padding + 250f, legendY, textPaint)
-        canvas.drawLine(padding + 250f, legendY + 10f, padding + 400f, legendY + 10f, liftPaint)
+        if (count == 0) {
+            displayDrag = "Settling..."
+            displayLift = "Settling..."
+        } else {
+            if (displayMode == DisplayMode.FORCE) {
+                displayDrag = String.format(Locale.US, "Avg Drag: %.1f N", avgDrag)
+                displayLift = String.format(Locale.US, "Avg Lift: %.1f N", avgLift)
+            } else {
+                displayDrag = String.format(Locale.US, "Avg Cd: %.2f", avgCd)
+                displayLift = String.format(Locale.US, "Avg Cl: %.2f", avgCl)
+            }
+        }
         
-        canvas.drawText(String.format(Locale.US, "Total Window: %.2fs", rangeTime), width - padding - 300f, legendY, textPaint)
+        canvas.drawText(displayDrag, padding, legendY, textPaint)
+        canvas.drawLine(padding, legendY + 10f, padding + 200f, legendY + 10f, dragPaint)
+        
+        canvas.drawText(displayLift, padding + 300f, legendY, textPaint)
+        canvas.drawLine(padding + 300f, legendY + 10f, padding + 500f, legendY + 10f, liftPaint)
+        
+        canvas.drawText(String.format(Locale.US, "Mode: %s | Window: %.2fs", modeLabel, rangeTime), width - padding - 450f, legendY, textPaint)
     }
 }

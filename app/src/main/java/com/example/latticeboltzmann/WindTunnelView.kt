@@ -13,7 +13,7 @@ class WindTunnelView @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null,
 ) : SurfaceView(context, attrs), SurfaceHolder.Callback, Runnable {
-    enum class BrushShape { CIRCLE, SQUARE }
+    enum class BrushShape { CIRCLE, SQUARE, NACA0012, NACA4412 }
     private data class ReinitParams(val w: Int, val h: Int)
     
     // High resolution supported natively by C++ OpenMP
@@ -36,8 +36,11 @@ class WindTunnelView @JvmOverloads constructor(
     
     var brushShape = BrushShape.CIRCLE
     var showDetailedTelemetry = true
+    var showGridlines = false
     var baseBrushSize = 8
+    var airfoilAoA = 0.0f
     var visualizationMode = NativeLBMEngine.VIZ_VELOCITY
+    var boundaryMode = NativeLBMEngine.BND_PERIODIC
     var useAbsolutePressure = false
 
     // Telemetry
@@ -62,6 +65,13 @@ class WindTunnelView @JvmOverloads constructor(
         textSize = 40f
         isAntiAlias = true
         setShadowLayer(3f, 1f, 1f, Color.BLACK)
+    }
+
+    private val gridPaintOverlay = Paint().apply {
+        color = Color.BLACK
+        alpha = 80 // Increased slightly for better contrast
+        strokeWidth = 1f
+        style = Paint.Style.STROKE
     }
 
     private val previewPaint = Paint().apply {
@@ -143,6 +153,7 @@ class WindTunnelView @JvmOverloads constructor(
                 engine.setDensity(currentPhysDensity)
                 engine.setViscosity(currentPhysViscosity)
                 engine.setVisualizationMode(visualizationMode)
+                engine.setBoundaryMode(boundaryMode)
                 
                 pendingReinit = null
             }
@@ -193,9 +204,11 @@ class WindTunnelView @JvmOverloads constructor(
             val elapsedSec = engine.getTotalSteps() * 0.000005f
             val dragN = engine.getDragForce()
             val liftN = engine.getLiftForce()
+            val cd = engine.getDragCoefficient()
+            val cl = engine.getLiftCoefficient()
             
             synchronized(forceHistory) {
-                forceHistory.add(ForceGraphView.ForcePoint(elapsedSec, dragN, liftN))
+                forceHistory.add(ForceGraphView.ForcePoint(elapsedSec, dragN, liftN, cd, cl))
                 if (forceHistory.size > maxHistorySize) {
                     forceHistory.removeAt(0)
                 }
@@ -205,22 +218,28 @@ class WindTunnelView @JvmOverloads constructor(
             if (canvas != null) {
                 canvas.drawBitmap(bitmap, null, Rect(0, 0, width, height), paint)
                 
+                if (showGridlines) {
+                    drawGrid(canvas)
+                }
+                
                 // Draw a visual preview of the growing shape
                 if (isHolding) {
                     val scaleX = width.toFloat() / simWidth
                     val scaleY = height.toFloat() / simHeight
-                    if (brushShape == BrushShape.CIRCLE) {
-                        canvas.drawCircle(
-                            touchSimX * scaleX, 
-                            touchSimY * scaleY, 
-                            currentRadius * scaleX, 
-                            previewPaint
-                        )
-                    } else {
-                        val r = currentRadius * scaleX
-                        val cx = touchSimX * scaleX
-                        val cy = touchSimY * scaleY
-                        canvas.drawRect(cx - r, cy - r, cx + r, cy + r, previewPaint)
+                    val r = currentRadius * scaleX
+                    val cx = touchSimX * scaleX
+                    val cy = touchSimY * scaleY
+
+                    when (brushShape) {
+                        BrushShape.CIRCLE -> canvas.drawCircle(cx, cy, r, previewPaint)
+                        BrushShape.SQUARE -> canvas.drawRect(cx - r, cy - r, cx + r, cy + r, previewPaint)
+                        else -> {
+                            // Draw a simple line to represent the airfoil chord for preview
+                            val angleRad = Math.toRadians(airfoilAoA.toDouble())
+                            val endX = cx + (currentRadius * scaleX * 5.0f * Math.cos(angleRad)).toFloat()
+                            val endY = cy + (currentRadius * scaleX * 5.0f * Math.sin(angleRad)).toFloat()
+                            canvas.drawLine(cx, cy, endX, endY, previewPaint)
+                        }
                     }
                 }
 
@@ -232,8 +251,8 @@ class WindTunnelView @JvmOverloads constructor(
                 val elapsedSeconds = engine.getTotalSteps() * 0.000005f
                 
                 canvas.drawText(String.format(Locale.US, "Velocity: %.1f m/s | Time: %.2fs", currentVel, elapsedSeconds), 30f, 80f, textPaint)
-                canvas.drawText(String.format(Locale.US, "Drag: %.2f N | Cd: %.2f", dragN, dragCd), 30f, 140f, textPaint)
-                canvas.drawText(String.format(Locale.US, "Lift: %.2f N | Cl: %.2f", liftN, liftCl), 30f, 200f, textPaint)
+                canvas.drawText(String.format(Locale.US, "Drag: %.1f N | Cd: %.2f", dragN, dragCd), 30f, 140f, textPaint)
+                canvas.drawText(String.format(Locale.US, "Lift: %.1f N | Cl: %.2f", liftN, liftCl), 30f, 200f, textPaint)
                 
                 if (showDetailedTelemetry) {
                     val dx = engine.getDX()
@@ -255,10 +274,11 @@ class WindTunnelView @JvmOverloads constructor(
     }
 
     private fun addObstacleToEngine(x: Int, y: Int, radius: Int) {
-        if (brushShape == BrushShape.CIRCLE) {
-            engine.addObstacle(x, y, radius)
-        } else {
-            engine.addBoxObstacle(x, y, radius * 2)
+        when (brushShape) {
+            BrushShape.CIRCLE -> engine.addObstacle(x, y, radius)
+            BrushShape.SQUARE -> engine.addBoxObstacle(x, y, radius * 2)
+            BrushShape.NACA0012 -> engine.addNacaAirfoil(x, y, radius * 5, 0.0f, 0.0f, 0.12f, airfoilAoA)
+            BrushShape.NACA4412 -> engine.addNacaAirfoil(x, y, radius * 5, 0.04f, 0.4f, 0.12f, airfoilAoA)
         }
     }
 
@@ -370,9 +390,41 @@ class WindTunnelView @JvmOverloads constructor(
         engine.setVisualizationMode(mode)
     }
 
+    fun updateBoundaryMode(mode: Int) {
+        boundaryMode = mode
+        engine.setBoundaryMode(mode)
+    }
+
+    fun getSimWidth(): Int = simWidth
+
     fun getForceHistory(): List<ForceGraphView.ForcePoint> {
         return synchronized(forceHistory) {
             forceHistory.toList()
+        }
+    }
+
+    private fun drawGrid(canvas: Canvas) {
+        val scaleX = width.toFloat() / simWidth
+        val scaleY = height.toFloat() / simHeight
+        
+        // dx = 0.0025m (2.5mm)
+        // 40 cells = 0.1m (10cm)
+        val gridIntervalCells = 40
+        val gridStepX = gridIntervalCells * scaleX
+        val gridStepY = gridIntervalCells * scaleY
+        
+        // Vertical lines
+        var x = 0f
+        while (x < width) {
+            canvas.drawLine(x, 0f, x, height.toFloat(), gridPaintOverlay)
+            x += gridStepX
+        }
+        
+        // Horizontal lines
+        var y = 0f
+        while (y < height) {
+            canvas.drawLine(0f, y, width.toFloat(), y, gridPaintOverlay)
+            y += gridStepY
         }
     }
 }

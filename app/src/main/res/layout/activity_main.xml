@@ -12,28 +12,37 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="top|end"
-        android:layout_margin="16dp"
+        android:layout_margin="12dp"
         android:orientation="horizontal">
 
         <Button
             android:id="@+id/btnGraph"
+            style="?attr/materialButtonStyle"
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginEnd="8dp"
-            android:text="Graph" />
+            android:layout_height="36dp"
+            android:layout_marginEnd="6dp"
+            android:padding="0dp"
+            android:text="Graph"
+            android:textSize="12sp" />
 
         <Button
             android:id="@+id/btnSettings"
+            style="?attr/materialButtonStyle"
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginEnd="8dp"
-            android:text="Settings" />
+            android:layout_height="36dp"
+            android:layout_marginEnd="6dp"
+            android:padding="0dp"
+            android:text="Settings"
+            android:textSize="12sp" />
 
         <Button
             android:id="@+id/btnReset"
+            style="?attr/materialButtonStyle"
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Reset" />
+            android:layout_height="36dp"
+            android:padding="0dp"
+            android:text="Reset"
+            android:textSize="12sp" />
     </LinearLayout>
 
     <!-- Graph Overlay Container -->
@@ -50,13 +59,58 @@
             android:layout_height="match_parent"
             android:layout_margin="40dp" />
 
-        <Button
-            android:id="@+id/btnCloseGraph"
+        <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:layout_gravity="center_vertical|end"
+            android:layout_margin="16dp"
+            android:background="#A0000000"
+            android:orientation="vertical"
+            android:padding="8dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Plot Mode"
+                android:textColor="@android:color/white"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+
+            <RadioGroup
+                android:id="@+id/rgGraphMode"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <RadioButton
+                    android:id="@+id/rbModeForce"
+                    android:layout_width="wrap_content"
+                    android:layout_height="32dp"
+                    android:checked="true"
+                    android:text="Force (N)"
+                    android:textColor="@android:color/white"
+                    android:textSize="10sp" />
+
+                <RadioButton
+                    android:id="@+id/rbModeCoef"
+                    android:layout_width="wrap_content"
+                    android:layout_height="32dp"
+                    android:text="Coefficients"
+                    android:textColor="@android:color/white"
+                    android:textSize="10sp" />
+            </RadioGroup>
+        </LinearLayout>
+
+        <Button
+            android:id="@+id/btnCloseGraph"
+            style="?attr/materialButtonStyle"
+            android:layout_width="wrap_content"
+            android:layout_height="36dp"
             android:layout_gravity="top|end"
             android:layout_margin="16dp"
-            android:text="Close" />
+            android:padding="0dp"
+            android:text="Close"
+            android:textSize="12sp" />
     </FrameLayout>
 
 </FrameLayout>
