@@ -148,7 +148,9 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Brush Shape"
-            android:textColor="@android:color/white" />
+            android:textColor="@android:color/white"
+            android:textSize="18sp"
+            android:textStyle="bold" />
 
         <RadioGroup
             android:id="@+id/rgShape"
@@ -161,28 +163,28 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:checked="true"
-                android:text="Circle"
+                android:text="Circle Brush"
                 android:textColor="@android:color/white" />
 
             <RadioButton
                 android:id="@+id/rbSquare"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Square"
+                android:text="Square Brush"
                 android:textColor="@android:color/white" />
 
             <RadioButton
                 android:id="@+id/rbNaca0012"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="NACA 0012 Brush"
+                android:text="NACA 0012 Wing Brush"
                 android:textColor="@android:color/white" />
 
             <RadioButton
                 android:id="@+id/rbNaca4412"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="NACA 4412 Brush"
+                android:text="NACA 4412 Wing Brush"
                 android:textColor="@android:color/white" />
         </RadioGroup>
 
@@ -199,7 +201,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="Angle of Attack"
+                android:text="Angle of Attack (Wings)"
                 android:textColor="@android:color/white" />
 
             <TextView
@@ -230,7 +232,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="Initial Brush Size"
+                android:text="Brush Size / Chord"
                 android:textColor="@android:color/white" />
 
             <TextView
@@ -256,7 +258,9 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Visualization Map"
-            android:textColor="@android:color/white" />
+            android:textColor="@android:color/white"
+            android:textSize="18sp"
+            android:textStyle="bold" />
 
         <RadioGroup
             android:id="@+id/rgViz"
@@ -276,14 +280,14 @@
                 android:id="@+id/rbVizPressure"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Static Pressure"
+                android:text="Pressure"
                 android:textColor="@android:color/white" />
 
             <RadioButton
                 android:id="@+id/rbVizTotal"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Total Pressure"
+                android:text="Total"
                 android:textColor="@android:color/white" />
         </RadioGroup>
 
@@ -295,7 +299,7 @@
             android:id="@+id/swAbsolute"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Use Absolute Pressure (101.3 kPa base)"
+            android:text="Absolute Pressure"
             android:textColor="@android:color/white" />
 
         <Space
@@ -305,8 +309,10 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Top/Bottom Boundaries"
-            android:textColor="@android:color/white" />
+            android:text="Boundary Conditions"
+            android:textColor="@android:color/white"
+            android:textSize="18sp"
+            android:textStyle="bold" />
 
         <RadioGroup
             android:id="@+id/rgBoundary"
@@ -319,21 +325,21 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:checked="true"
-                android:text="Periodic (Wraparound)"
+                android:text="Periodic"
                 android:textColor="@android:color/white" />
 
             <RadioButton
                 android:id="@+id/rbBndNoSlip"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="No-Slip Wall (Friction)"
+                android:text="Solid Walls"
                 android:textColor="@android:color/white" />
 
             <RadioButton
                 android:id="@+id/rbBndFreeSlip"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Free-Slip (Mirror/Symmetry)"
+                android:text="Symmetry/Smooth"
                 android:textColor="@android:color/white" />
         </RadioGroup>
 
@@ -346,18 +352,14 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:checked="true"
-            android:text="Show Detailed Telemetry"
+            android:text="Show Detailed Stats"
             android:textColor="@android:color/white" />
-
-        <Space
-            android:layout_width="match_parent"
-            android:layout_height="8dp" />
 
         <androidx.appcompat.widget.SwitchCompat
             android:id="@+id/swGridlines"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Show Reference Grid (10cm)"
+            android:text="Show Gridlines"
             android:textColor="@android:color/white" />
 
         <Space
