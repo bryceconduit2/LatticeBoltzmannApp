@@ -98,12 +98,20 @@ class NativeLBMEngine(val width: Int, val height: Int) {
         return if (enginePtr != 0L) getDragCoefficientNative(enginePtr) else 0.0f
     }
 
+    fun getInstantDragCoefficient(): Float {
+        return if (enginePtr != 0L) getInstantDragCoefficientNative(enginePtr) else 0.0f
+    }
+
     fun getLiftForce(): Float {
         return if (enginePtr != 0L) getLiftForceNative(enginePtr) else 0.0f
     }
 
     fun getLiftCoefficient(): Float {
         return if (enginePtr != 0L) getLiftCoefficientNative(enginePtr) else 0.0f
+    }
+
+    fun getInstantLiftCoefficient(): Float {
+        return if (enginePtr != 0L) getInstantLiftCoefficientNative(enginePtr) else 0.0f
     }
 
     fun getTotalSteps(): Long {
@@ -134,6 +142,18 @@ class NativeLBMEngine(val width: Int, val height: Int) {
         }
     }
 
+    fun getActiveCores(): Int {
+        return if (enginePtr != 0L) getActiveCoresNative(enginePtr) else 0
+    }
+
+    fun getMaxCores(): Int = getMaxCoresNative()
+
+    fun setNumThreads(n: Int) {
+        if (enginePtr != 0L) {
+            setNumThreadsNative(enginePtr, n)
+        }
+    }
+
     private external fun initEngine(width: Int, height: Int): Long
     private external fun stepAndRenderNative(ptr: Long, bitmap: Bitmap, steps: Int)
     private external fun addObstacleNative(ptr: Long, cx: Int, cy: Int, radius: Int)
@@ -148,11 +168,16 @@ class NativeLBMEngine(val width: Int, val height: Int) {
     private external fun getInletVelocityNative(ptr: Long): Float
     private external fun getDragForceNative(ptr: Long): Float
     private external fun getDragCoefficientNative(ptr: Long): Float
+    private external fun getInstantDragCoefficientNative(ptr: Long): Float
     private external fun getLiftForceNative(ptr: Long): Float
     private external fun getLiftCoefficientNative(ptr: Long): Float
+    private external fun getInstantLiftCoefficientNative(ptr: Long): Float
     private external fun getTotalStepsNative(ptr: Long): Long
     private external fun getDensityNative(ptr: Long): Float
     private external fun getViscosityNative(ptr: Long): Float
     private external fun getDXNative(ptr: Long): Float
     private external fun destroyEngine(ptr: Long)
+    private external fun getMaxCoresNative(): Int
+    private external fun setNumThreadsNative(ptr: Long, n: Int)
+    private external fun getActiveCoresNative(ptr: Long): Int
 }

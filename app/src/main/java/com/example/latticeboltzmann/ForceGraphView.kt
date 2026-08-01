@@ -17,37 +17,40 @@ class ForceGraphView @JvmOverloads constructor(
     data class ForcePoint(val time: Float, val drag: Float, val lift: Float, val cd: Float, val cl: Float)
     private var history = listOf<ForcePoint>()
 
+    private fun dpToPx(dp: Float): Float = dp * resources.displayMetrics.density
+    private fun spToPx(sp: Float): Float = sp * resources.displayMetrics.scaledDensity
+
     private val dragPaint = Paint().apply {
         color = Color.RED
         style = Paint.Style.STROKE
-        strokeWidth = 5f
+        strokeWidth = dpToPx(2f)
         isAntiAlias = true
     }
 
     private val liftPaint = Paint().apply {
         color = Color.CYAN
         style = Paint.Style.STROKE
-        strokeWidth = 5f
+        strokeWidth = dpToPx(2f)
         isAntiAlias = true
     }
 
     private val gridPaint = Paint().apply {
         color = Color.GRAY
         alpha = 100
-        strokeWidth = 2f
+        strokeWidth = dpToPx(1f)
     }
 
     private val textPaint = Paint().apply {
         color = Color.WHITE
-        textSize = 30f
+        textSize = spToPx(12f)
         isAntiAlias = true
     }
 
     private val zeroLinePaint = Paint().apply {
         color = Color.WHITE
         alpha = 150
-        strokeWidth = 3f
-        pathEffect = DashPathEffect(floatArrayOf(10f, 10f), 0f)
+        strokeWidth = dpToPx(1.5f)
+        pathEffect = DashPathEffect(floatArrayOf(dpToPx(4f), dpToPx(4f)), 0f)
     }
 
     private val dragPath = Path()
@@ -62,7 +65,7 @@ class ForceGraphView @JvmOverloads constructor(
         super.onDraw(canvas)
         if (history.isEmpty()) return
 
-        val padding = 100f
+        val padding = dpToPx(48f)
         val graphWidth = width - 2 * padding
         val graphHeight = height - 2 * padding
 
@@ -103,7 +106,7 @@ class ForceGraphView @JvmOverloads constructor(
             } else {
                 String.format(Locale.US, "%.2f", value)
             }
-            canvas.drawText(labelText, 10f, y + 10f, textPaint)
+            canvas.drawText(labelText, dpToPx(4f), y + dpToPx(4f), textPaint)
         }
 
         // Draw vertical grid lines and time labels
@@ -112,7 +115,7 @@ class ForceGraphView @JvmOverloads constructor(
             val x = padding + (i.toFloat() / timeLines) * graphWidth
             val timeValue = minTime + (i.toFloat() / timeLines) * rangeTime
             canvas.drawLine(x, padding, x, height - padding, gridPaint)
-            canvas.drawText(String.format(Locale.US, "%.3fs", timeValue), x - 40f, height - padding + 40f, textPaint)
+            canvas.drawText(String.format(Locale.US, "%.3fs", timeValue), x - dpToPx(16f), height - padding + dpToPx(20f), textPaint)
         }
 
         // Draw Zero Reference Line
@@ -169,7 +172,7 @@ class ForceGraphView @JvmOverloads constructor(
         val avgCl = if (count > 0) sumCl / count else 0f
 
         // Legend - With clearer labels and indicators
-        val legendY = padding - 40f
+        val legendY = padding - dpToPx(16f)
         val modeLabel = if (displayMode == DisplayMode.FORCE) "Forces" else "Coefficients"
         
         val displayDrag: String
@@ -188,12 +191,16 @@ class ForceGraphView @JvmOverloads constructor(
             }
         }
         
+        val dragIndicatorWidth = dpToPx(60f)
+        val liftOffset = dpToPx(140f)
+        val infoOffset = dpToPx(280f)
+
         canvas.drawText(displayDrag, padding, legendY, textPaint)
-        canvas.drawLine(padding, legendY + 10f, padding + 200f, legendY + 10f, dragPaint)
+        canvas.drawLine(padding, legendY + dpToPx(4f), padding + dragIndicatorWidth, legendY + dpToPx(4f), dragPaint)
         
-        canvas.drawText(displayLift, padding + 300f, legendY, textPaint)
-        canvas.drawLine(padding + 300f, legendY + 10f, padding + 500f, legendY + 10f, liftPaint)
+        canvas.drawText(displayLift, padding + liftOffset, legendY, textPaint)
+        canvas.drawLine(padding + liftOffset, legendY + dpToPx(4f), padding + liftOffset + dragIndicatorWidth, legendY + dpToPx(4f), liftPaint)
         
-        canvas.drawText(String.format(Locale.US, "Mode: %s | Window: %.2fs", modeLabel, rangeTime), width - padding - 450f, legendY, textPaint)
+        canvas.drawText(String.format(Locale.US, "Mode: %s | Window: %.2fs", modeLabel, rangeTime), padding + infoOffset, legendY, textPaint)
     }
 }

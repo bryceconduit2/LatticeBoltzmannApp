@@ -1,0 +1,4 @@
+- [x] Remove visual interlacing (checkerboard) from `lbm_engine.cpp`
+- [x] Restore full-resolution 1:1 rendering in Performance Mode
+- [x] Implement Row-Based Adaptive Physics with "Halo" buffers
+- [ ] Verify turbulence propagation and FPS on device

@@ -86,6 +86,8 @@ class MainActivity : AppCompatActivity() {
         val swGridlines = view.findViewById<SwitchCompat>(R.id.swGridlines)
         val sbAoA = view.findViewById<SeekBar>(R.id.sbAoA)
         val tvAoAValue = view.findViewById<TextView>(R.id.tvAoAValue)
+        val sbCores = view.findViewById<SeekBar>(R.id.sbCores)
+        val tvCoreValue = view.findViewById<TextView>(R.id.tvCoreValue)
 
         // Initialize with current values
         val currentSpeed = windTunnelView.getAirflowSpeed()
@@ -129,6 +131,7 @@ class MainActivity : AppCompatActivity() {
         // Small=200, Medium=400, Large=600
         val currentSimWidth = windTunnelView.getSimWidth()
         when (currentSimWidth) {
+            160 -> rgSize.check(R.id.rbTiny)
             200 -> rgSize.check(R.id.rbSmall)
             400 -> rgSize.check(R.id.rbMedium)
             600 -> rgSize.check(R.id.rbLarge)
@@ -151,6 +154,7 @@ class MainActivity : AppCompatActivity() {
 
         rgSize.setOnCheckedChangeListener { _, checkedId ->
             when (checkedId) {
+                R.id.rbTiny -> windTunnelView.reinit(160, 80)
                 R.id.rbSmall -> windTunnelView.reinit(200, 100)
                 R.id.rbMedium -> windTunnelView.reinit(400, 200)
                 R.id.rbLarge -> windTunnelView.reinit(600, 300)
@@ -235,6 +239,32 @@ class MainActivity : AppCompatActivity() {
         swGridlines.isChecked = windTunnelView.showGridlines
         swGridlines.setOnCheckedChangeListener { _, isChecked ->
             windTunnelView.showGridlines = isChecked
+        }
+
+        // Initialize Core slider
+        val maxCores = windTunnelView.getMaxAvailableCores()
+        sbCores.max = maxCores - 1 // 0-indexed internally, but we'll offset it by 1
+        sbCores.progress = windTunnelView.coreCount - 1
+        tvCoreValue.text = windTunnelView.coreCount.toString()
+
+        sbCores.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                val cores = progress + 1
+                windTunnelView.updateCoreCount(cores)
+                tvCoreValue.text = cores.toString()
+            }
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+        })
+
+        // Ensure the bottom sheet is fully expanded so the internal scroll view works predictably
+        dialog.setOnShowListener {
+            val bottomSheet = dialog.findViewById<android.view.View>(com.google.android.material.R.id.design_bottom_sheet)
+            bottomSheet?.let {
+                val behavior = com.google.android.material.bottomsheet.BottomSheetBehavior.from(it)
+                behavior.state = com.google.android.material.bottomsheet.BottomSheetBehavior.STATE_EXPANDED
+                behavior.skipCollapsed = true
+            }
         }
 
         dialog.show()

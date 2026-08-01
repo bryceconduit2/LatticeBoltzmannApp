@@ -1,14 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content">
+    android:layout_height="wrap_content"
+    android:scrollbars="vertical"
+    android:fadeScrollbars="false"
+    android:scrollbarSize="12dp"
+    android:scrollbarThumbVertical="@android:color/darker_gray"
+    android:scrollbarStyle="insideOverlay">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:background="#E0000000"
         android:orientation="vertical"
-        android:padding="24dp">
+        android:paddingTop="24dp"
+        android:paddingBottom="24dp"
+        android:paddingStart="24dp"
+        android:paddingEnd="32dp">
 
         <TextView
             android:layout_width="wrap_content"
@@ -23,6 +31,13 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical">
+
+            <RadioButton
+                android:id="@+id/rbTiny"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Tiny (160x80 - Performance)"
+                android:textColor="@android:color/white" />
 
             <RadioButton
                 android:id="@+id/rbSmall"
@@ -364,16 +379,52 @@
 
         <Space
             android:layout_width="match_parent"
+            android:layout_height="16dp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Processing Cores"
+                android:textColor="@android:color/white"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tvCoreValue"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="4"
+                android:textColor="@android:color/white" />
+        </LinearLayout>
+
+        <SeekBar
+            android:id="@+id/sbCores"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:max="8"
+            android:progress="4" />
+
+        <Space
+            android:layout_width="match_parent"
+            android:layout_height="8dp" />
+
+        <Space
+            android:layout_width="match_parent"
             android:layout_height="32dp" />
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Educational Disclaimer:\nThis app is to be used as an educational tool only and not be relied upon for any design calculations. Please allow the flow to stabilise before reading any results, turbulence can cause significant fluctuations."
+            android:text="Educational Disclaimer:\nThis app is to be used as an educational tool only and not be relied upon for any design calculations. Please allow the flow to stabilise before reading any results, turbulence can cause significant fluctuations. Uses Lattice Boltzmann with Bouzidi–Firdaouss–Lallemand (BFL) scheme for boundary collisions"
             android:textColor="#A0FFFFFF"
             android:textSize="12sp"
             android:textStyle="italic"
             android:gravity="center" />
 
     </LinearLayout>
-</ScrollView>
+</androidx.core.widget.NestedScrollView>
