@@ -1,10 +1,9 @@
-package com.example.latticeboltzmann
+package com.BC.latticeboltzmann
 
 import android.graphics.*
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.rule.GrantPermissionRule
-import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test

@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace = "com.example.latticeboltzmann"
+    namespace = "com.BC.latticeboltzmann"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.example.latticeboltzmann"
+        applicationId = "com.BC.latticeboltzmann"
         minSdk = 26
         targetSdk = 35
         versionCode = 1
@@ -32,11 +32,11 @@ android {
     }
     buildTypes {
         getByName("release") {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
 
-            // ADD THIS LINE:
-            signingConfig = signingConfigs.getByName("debug")
+            // REMOVED debug signing override for production security
 
             // ADD THIS BLOCK:
             installation {

@@ -1,4 +1,4 @@
-package com.example.latticeboltzmann
+package com.BC.latticeboltzmann
 
 import android.graphics.Bitmap
 
