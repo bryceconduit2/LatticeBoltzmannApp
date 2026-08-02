@@ -140,7 +140,7 @@ struct LBMEngine {
         const float regFactor = 0.98f * inv2cs4;
         const float smagCoeff = 18.0f * SmagorinskyConstant * SmagorinskyConstant;
 
-        float localDragX = 0.0f; float localLiftY = 0.0f;
+        double totalForceX = 0.0; double totalForceY = 0.0;
         int stepMinY = height, stepMaxY = 0;
         int stepMinX = width, stepMaxX = 0;
 
@@ -153,12 +153,12 @@ struct LBMEngine {
             fn_ptr[i] = fNew[i].data();
         }
         const uint8_t* __restrict obs_ptr = obstacles.data();
-        float* __restrict lq_ptr[9];
+        const float* __restrict lq_ptr[9];
         for (int i = 0; i < 9; i++) lq_ptr[i] = linkQ[i].data();
 
-#pragma omp parallel for collapse(2) schedule(static) default(none) \
+#pragma omp parallel for schedule(static) default(none) \
     shared(f_ptr, fn_ptr, obs_ptr, lq_ptr, velocityMag, visualizationSource, width, height, cs2, smagCoeff, inv2cs2, tau_0, regFactor, weights, CX, CY, opposite, vizMode, uInlet, numThreads, boundaryMode, W0, W1, W2) \
-    reduction(+:localDragX, localLiftY) reduction(min:stepMinY, stepMinX) reduction(max:stepMaxY, stepMaxX) \
+    reduction(+:totalForceX, totalForceY) reduction(min:stepMinY, stepMinX) reduction(max:stepMaxY, stepMaxX) \
     num_threads(numThreads)
         for (int y = 0; y < height; y++) {
             if (omp_get_thread_num() == 0) activeCores = omp_get_num_threads();
@@ -172,7 +172,7 @@ struct LBMEngine {
                     continue;
                 }
 
-                // 1. PULL STREAMING + BOUNDARY HANDLING
+                // 1. PULL STREAMING (Pulling packet i from neighbor at -Ci)
                 float local_f[9];
 
                 // x=0 is the Inlet
@@ -181,46 +181,58 @@ struct LBMEngine {
                     const float term1 = 1.0f - 1.5f * u * u;
                     const float u3 = 3.0f * u;
                     const float u45 = 4.5f * u * u;
-                    local_f[0] = weights[0] * term1;
-                    local_f[1] = weights[1] * (term1 + u3 + u45);
-                    local_f[2] = weights[2] * term1;
-                    local_f[3] = weights[3] * (term1 - u3 + u45);
-                    local_f[4] = weights[4] * term1;
-                    local_f[5] = weights[5] * (term1 + u3 + u45);
-                    local_f[6] = weights[6] * (term1 - u3 + u45);
-                    local_f[7] = weights[7] * (term1 - u3 + u45);
-                    local_f[8] = weights[8] * (term1 + u3 + u45);
+                    local_f[0] = W0 * term1;
+                    local_f[1] = W1 * (term1 + u3 + u45);
+                    local_f[2] = W1 * term1;
+                    local_f[3] = W1 * (term1 - u3 + u45);
+                    local_f[4] = W1 * term1;
+                    local_f[5] = W2 * (term1 + u3 + u45);
+                    local_f[6] = W2 * (term1 - u3 + u45);
+                    local_f[7] = W2 * (term1 - u3 + u45);
+                    local_f[8] = W2 * (term1 + u3 + u45);
                 } else {
                     const bool is_interior = (!y_edge && x < width - 1);
                     for (int i = 0; i < 9; i++) {
-                        int nx, ny;
-                        if (is_interior) {
-                            nx = x - CX[i]; ny = y - CY[i];
-                        } else {
-                            nx = x - CX[i]; ny = y - CY[i];
-                            if (nx < 0) nx = width - 1; else if (nx >= width) nx = 0;
-                            if (ny < 0 || ny >= height) {
-                                if (boundaryMode == PERIODIC) { if (ny < 0) ny = height - 1; else ny = 0; }
-                                else { local_f[i] = f_ptr[opposite[i]][idx]; continue; }
+                        int nx = x - CX[i];
+                        int ny = y - CY[i];
+
+                        if (nx < 0) nx = width - 1; else if (nx >= width) nx = 0;
+                        if (ny < 0 || ny >= height) {
+                            if (boundaryMode == PERIODIC) {
+                                if (ny < 0) ny = height - 1; else ny = 0;
+                            } else {
+                                // Boundary walls top/bottom
+                                local_f[i] = f_ptr[opposite[i]][idx];
+                                continue;
                             }
                         }
 
                         const int srcIdx = ny * width + nx;
                         if (obs_ptr[srcIdx]) {
-                            // BFL Interpolated Bounce-Back
-                            float q = lq_ptr[opposite[i]][idx];
-                            if (q <= 0.001f) q = 0.5f;
+                            // Current node idx is fluid, neighbor srcIdx is solid.
+                            // Neighbor is in direction opposite[i] from idx?
+                            // No. nx = x - CX[i] means the neighbor is at C[opposite[i]] relative to X.
+                            const int dir_to_wall = opposite[i];
+                            const float q = lq_ptr[dir_to_wall][idx];
+                            const float fi_out = f_ptr[dir_to_wall][idx];
+                            float fi_in;
+
                             if (q < 0.5f) {
                                 int nx2 = x + CX[i]; int ny2 = y + CY[i];
                                 if (nx2 < 0) nx2 = width-1; else if (nx2 >= width) nx2 = 0;
                                 if (ny2 < 0) ny2 = height-1; else if (ny2 >= height) ny2 = 0;
-                                local_f[i] = 2.0f * q * f_ptr[opposite[i]][idx] + (1.0f - 2.0f * q) * f_ptr[opposite[i]][ny2 * width + nx2];
+                                fi_in = 2.0f * q * fi_out + (1.0f - 2.0f * q) * f_ptr[dir_to_wall][ny2 * width + nx2];
                             } else {
                                 float inv2q = 1.0f / (2.0f * q);
-                                local_f[i] = inv2q * f_ptr[opposite[i]][idx] + (1.0f - inv2q) * fn_ptr[opposite[i]][idx]; // Use partial stream from current pass
+                                fi_in = inv2q * fi_out + (1.0f - inv2q) * f_ptr[i][idx];
                             }
-                            localDragX += 2.0f * (f_ptr[opposite[i]][idx] - weights[opposite[i]]) * cxs[opposite[i]];
-                            localLiftY += 2.0f * (f_ptr[opposite[i]][idx] - weights[opposite[i]]) * cys[opposite[i]];
+                            local_f[i] = fi_in;
+
+                            // Momentum Exchange Force
+                            if (y > 1 && y < height - 2) {
+                                totalForceX += (double)(fi_out + fi_in) * (double)CX[dir_to_wall];
+                                totalForceY += (double)(fi_out + fi_in) * (double)CY[dir_to_wall];
+                            }
                         } else {
                             local_f[i] = f_ptr[i][srcIdx];
                         }
@@ -293,7 +305,7 @@ struct LBMEngine {
         if (stepMaxY >= stepMinY) frontalArea = static_cast<float>(stepMaxY - stepMinY + 1) * dx; else frontalArea = 0.0f;
         if (stepMaxX >= stepMinX) horizontalSpan = static_cast<float>(stepMaxX - stepMinX + 1) * dx; else horizontalSpan = 0.0f;
         for (int i = 0; i < 9; i++) f[i].swap(fNew[i]);
-        return {localDragX, -localLiftY};
+        return {(float)totalForceX, -(float)totalForceY};
     }
 };
 
@@ -376,6 +388,35 @@ extern "C" JNIEXPORT void JNICALL Java_com_example_latticeboltzmann_NativeLBMEng
 }
 extern "C" JNIEXPORT void JNICALL Java_com_example_latticeboltzmann_NativeLBMEngine_setDensityNative(JNIEnv *env, jobject thiz, jlong ptr, jfloat d) { reinterpret_cast<LBMEngine*>(ptr)->rhoAir = d; }
 extern "C" JNIEXPORT void JNICALL Java_com_example_latticeboltzmann_NativeLBMEngine_setViscosityNative(JNIEnv *env, jobject thiz, jlong ptr, jfloat v) { reinterpret_cast<LBMEngine*>(ptr)->nuAir = v; }
+extern "C" JNIEXPORT void JNICALL Java_com_example_latticeboltzmann_NativeLBMEngine_stepNative(JNIEnv *env, jobject thiz, jlong ptr, jint steps) {
+    auto* e = reinterpret_cast<LBMEngine*>(ptr);
+    if (!e) return;
+    double dragAcc = 0.0; double liftAcc = 0.0;
+    for (int i = 0; i < steps; i++) {
+        ForceResult res = e->step();
+        dragAcc += (double)res.drag;
+        liftAcc += (double)res.lift;
+    }
+    if (steps > 0) {
+        float avgD = (float)(dragAcc / steps); float avgL = (float)(liftAcc / steps);
+        float conv = e->rhoAir * (e->dx * e->dx * e->dx) / (e->dt * e->dt);
+        e->dragForceNewtons = fabsf(avgD) * conv; e->liftForceNewtons = avgL * conv;
+        float uL = e->uInlet; float refL = fmaxf(e->frontalArea, e->horizontalSpan) / e->dx;
+        float dynP = 0.5f * (uL * uL);
+        if (uL > 0.001f && refL > 0.5f) {
+            float instantCd = fabsf(avgD) / (dynP * refL);
+            float instantCl = avgL / (dynP * refL);
+            e->dragCoefficient = instantCd;
+            e->liftCoefficient = instantCl;
+            e->smoothedCd = e->smoothedCd * 0.98f + instantCd * 0.02f;
+            e->smoothedCl = e->smoothedCl * 0.98f + instantCl * 0.02f;
+        } else {
+            e->dragCoefficient = 0; e->liftCoefficient = 0;
+            e->smoothedCd = 0; e->smoothedCl = 0;
+        }
+    }
+}
+
 extern "C" JNIEXPORT void JNICALL Java_com_example_latticeboltzmann_NativeLBMEngine_stepAndRenderNative(JNIEnv *env, jobject thiz, jlong ptr, jobject bitmap, jint steps) {
     auto* e = reinterpret_cast<LBMEngine*>(ptr); double dragAcc = 0.0; double liftAcc = 0.0;
     for (int i = 0; i < steps; i++) { ForceResult res = e->step(); dragAcc += (double)res.drag; liftAcc += (double)res.lift; }

@@ -39,6 +39,12 @@ class NativeLBMEngine(val width: Int, val height: Int) {
         stepAndRenderNative(enginePtr, bitmap, steps)
     }
 
+    fun step(steps: Int) {
+        if (enginePtr != 0L) {
+            stepNative(enginePtr, steps)
+        }
+    }
+
     fun addObstacle(cx: Int, cy: Int, radius: Int) {
         addObstacleNative(enginePtr, cx, cy, radius)
     }
@@ -163,6 +169,7 @@ class NativeLBMEngine(val width: Int, val height: Int) {
     }
 
     private external fun initEngine(width: Int, height: Int): Long
+    private external fun stepNative(ptr: Long, steps: Int)
     private external fun stepAndRenderNative(ptr: Long, bitmap: Bitmap, steps: Int)
     private external fun addObstacleNative(ptr: Long, cx: Int, cy: Int, radius: Int)
     private external fun addBoxObstacleNative(ptr: Long, cx: Int, cy: Int, size: Int)
