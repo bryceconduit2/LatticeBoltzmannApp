@@ -32,6 +32,8 @@ class WindTunnelView @JvmOverloads constructor(
     private var lastTouchSimX = -1
     private var lastTouchSimY = -1
     private var currentRadius = 8
+    private var persistentObjectRadius = 8
+    private var hasActiveObject = false
     private val maxRadius = 60 // Stop growing so it doesn't block the whole tunnel
     
     var brushShape = BrushShape.CIRCLE
@@ -168,27 +170,31 @@ class WindTunnelView @JvmOverloads constructor(
                 val dy = (touchSimY - lastTouchSimY).toFloat()
                 val dist = hypot(dx, dy)
 
-                if (dist > 2.0) {
-                    // Moved significantly: Act as a brush
+                if (dist > 0.5f) {
+                    // Moved significantly: Act as a brush. 
+                    // Reset to base size immediately for uniform lines.
                     currentRadius = baseBrushSize
                     
-                    // Linear interpolation to fill gaps
-                    val steps = Math.ceil(dist / (baseBrushSize / 2.0)).toInt().coerceAtLeast(1)
-                    for (i in 1..steps) {
+                    // High-density interpolation to ensure no gaps even at high speed
+                    val stepSize = (baseBrushSize / 4.0).coerceAtLeast(1.0)
+                    val steps = Math.ceil(dist / stepSize).toInt().coerceAtLeast(1)
+                    
+                    for (i in 0..steps) {
                         val t = i.toFloat() / steps
                         val px = (lastTouchSimX + dx * t).toInt()
                         val py = (lastTouchSimY + dy * t).toInt()
                         addObstacleToEngine(px, py, currentRadius)
                     }
                 } else {
-                    // Stationary: Grow the current point faster
+                    // Stationary: Grow the current point for large obstacles
                     if (currentRadius < maxRadius) {
-                        currentRadius += 2 // Increased growth speed
+                        currentRadius += 1 // Slower growth for better precision
                         if (currentRadius > maxRadius) currentRadius = maxRadius
                     }
                     addObstacleToEngine(touchSimX, touchSimY, currentRadius)
                 }
                 
+                persistentObjectRadius = currentRadius
                 lastTouchSimX = touchSimX
                 lastTouchSimY = touchSimY
             }
@@ -262,18 +268,27 @@ class WindTunnelView @JvmOverloads constructor(
                 canvas.drawText(String.format(Locale.US, "Drag: %.1f N | Cd: %.2f", dragN, dragCd), telemetryPadding, telemetryPadding * 1.5f + telemetrySpacing, textPaint)
                 canvas.drawText(String.format(Locale.US, "Lift: %.1f N | Cl: %.2f", liftN, liftCl), telemetryPadding, telemetryPadding * 1.5f + telemetrySpacing * 2f, textPaint)
                 
+                // Reynolds Number Calculation (Holistic)
+                val dx = engine.getDX()
+                val viscosity = engine.getViscosity()
+                
+                // Use the actual horizontal span (chord) of the entire object set
+                val L_obj = engine.getHorizontalSpan()
+                val reObject = if (viscosity > 0 && hasActiveObject) (currentVel * L_obj) / viscosity else 0f
+                
+                val reValueStr = if (hasActiveObject) String.format(Locale.US, "%,.0f", reObject) else "--"
+                canvas.drawText(String.format(Locale.US, "Reynolds No (Object): %s", reValueStr), telemetryPadding, telemetryPadding * 1.5f + telemetrySpacing * 3f, textPaint)
+
                 if (showDetailedTelemetry) {
-                    val dx = engine.getDX()
                     val physW = simWidth * dx
                     val physH = simHeight * dx
                     val density = engine.getDensity()
-                    val viscosity = engine.getViscosity()
                     val activeCores = getActiveCoreCount()
 
-                    canvas.drawText(String.format(Locale.US, "Tunnel: %.1fm x %.1fm (1.0m Depth)", physW, physH), telemetryPadding, telemetryPadding * 1.5f + telemetrySpacing * 3.5f, textPaint)
-                    canvas.drawText(String.format(Locale.US, "Density: %.2f kg/m³ | Visc: %.1e m²/s", density, viscosity), telemetryPadding, telemetryPadding * 1.5f + telemetrySpacing * 4.5f, textPaint)
-                    canvas.drawText(String.format(Locale.US, "Performance: %.0f FPS | %.0f Steps/s", fps, sps), telemetryPadding, telemetryPadding * 1.5f + telemetrySpacing * 5.5f, textPaint)
-                    canvas.drawText(String.format(Locale.US, "Active Cores: %d / %d", activeCores, coreCount), telemetryPadding, telemetryPadding * 1.5f + telemetrySpacing * 6.5f, textPaint)
+                    canvas.drawText(String.format(Locale.US, "Tunnel: %.1fm x %.1fm (1.0m Depth)", physW, physH), telemetryPadding, telemetryPadding * 1.5f + telemetrySpacing * 5.5f, textPaint)
+                    canvas.drawText(String.format(Locale.US, "Density: %.2f kg/m³ | Visc: %.1e m²/s", density, viscosity), telemetryPadding, telemetryPadding * 1.5f + telemetrySpacing * 6.5f, textPaint)
+                    canvas.drawText(String.format(Locale.US, "Performance: %.0f FPS | %.0f Steps/s", fps, sps), telemetryPadding, telemetryPadding * 1.5f + telemetrySpacing * 7.5f, textPaint)
+                    canvas.drawText(String.format(Locale.US, "Active Cores: %d / %d", activeCores, coreCount), telemetryPadding, telemetryPadding * 1.5f + telemetrySpacing * 8.5f, textPaint)
                 }
 
                 drawScaleBar(canvas)
@@ -284,6 +299,7 @@ class WindTunnelView @JvmOverloads constructor(
     }
 
     private fun addObstacleToEngine(x: Int, y: Int, radius: Int) {
+        hasActiveObject = true
         when (brushShape) {
             BrushShape.CIRCLE -> engine.addObstacle(x, y, radius)
             BrushShape.SQUARE -> engine.addBoxObstacle(x, y, radius * 2)
@@ -360,6 +376,7 @@ class WindTunnelView @JvmOverloads constructor(
     }
     fun reset() {
         engine.resetSimulation()
+        hasActiveObject = false
         synchronized(forceHistory) {
             forceHistory.clear()
         }

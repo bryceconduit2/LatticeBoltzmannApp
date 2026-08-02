@@ -69,7 +69,6 @@ struct LBMEngine {
 
     std::vector<float> f[9];
     std::vector<float> fNew[9];
-    std::vector<float> fPost[9]; // Post-collision buffer
     std::vector<uint8_t> obstacles;
     std::vector<float> linkQ[9]; // BFL: distance q to the wall (0.0 if not a boundary link)
     std::vector<float> velocityMag;
@@ -94,7 +93,6 @@ struct LBMEngine {
         for (int i = 0; i < 9; i++) {
             f[i].resize(size, 0.0f);
             fNew[i].resize(size, 0.0f);
-            fPost[i].resize(size, 0.0f);
             linkQ[i].resize(size, 0.0f);
         }
         obstacles.resize(size, 0);
@@ -129,17 +127,18 @@ struct LBMEngine {
 
     /**
      * Executes a single time step of the LBM algorithm.
-     * High Quality Unified Mode: Regularized BGK + Smagorinsky + BFL Boundaries.
+     * Fused Single-Pass Kernel: Pull-Streaming + Regularized BGK + Smagorinsky + BFL.
+     * This drastically reduces memory bandwidth requirements.
      */
     ForceResult step() {
         totalSteps++;
         uInlet = uInlet * 0.99f + uInletTarget * 0.01f;
-        float nuLB = nuAir * dt / (dx * dx);
-        float tau_0 = 3.0f * nuLB + 0.5f;
-        float inv2cs2 = 1.5f;
-        float inv2cs4 = 4.5f;
-        float regFactor = 0.98f * inv2cs4;
-        float smagCoeff = 18.0f * SmagorinskyConstant * SmagorinskyConstant;
+        const float nuLB = nuAir * dt / (dx * dx);
+        const float tau_0 = 3.0f * nuLB + 0.5f;
+        const float inv2cs2 = 1.5f;
+        const float inv2cs4 = 4.5f;
+        const float regFactor = 0.98f * inv2cs4;
+        const float smagCoeff = 18.0f * SmagorinskyConstant * SmagorinskyConstant;
 
         float localDragX = 0.0f; float localLiftY = 0.0f;
         int stepMinY = height, stepMaxY = 0;
@@ -148,41 +147,97 @@ struct LBMEngine {
         static const int CX[9] = { 0, 1, 0, -1, 0, 1, -1, -1, 1 };
         static const int CY[9] = { 0, 0, 1, 0, -1, 1, 1, -1, -1 };
 
-        float* f_ptr[9]; float* fp_ptr[9]; float* fn_ptr[9];
+        float* f_ptr[9]; float* fn_ptr[9];
         for (int i = 0; i < 9; i++) {
             f_ptr[i] = f[i].data();
-            fp_ptr[i] = fPost[i].data();
             fn_ptr[i] = fNew[i].data();
         }
         const uint8_t* __restrict obs_ptr = obstacles.data();
         float* __restrict lq_ptr[9];
         for (int i = 0; i < 9; i++) lq_ptr[i] = linkQ[i].data();
 
-        // --- PASS 1: Collision & Macroscopic Updates ---
 #pragma omp parallel for collapse(2) schedule(static) default(none) \
-    shared(f_ptr, fp_ptr, obs_ptr, velocityMag, visualizationSource, width, height, cs2, smagCoeff, inv2cs2, tau_0, regFactor, weights, cxs, cys, vizMode, uInlet, W0, W1, W2) \
+    shared(f_ptr, fn_ptr, obs_ptr, lq_ptr, velocityMag, visualizationSource, width, height, cs2, smagCoeff, inv2cs2, tau_0, regFactor, weights, CX, CY, opposite, vizMode, uInlet, numThreads, boundaryMode, W0, W1, W2) \
+    reduction(+:localDragX, localLiftY) reduction(min:stepMinY, stepMinX) reduction(max:stepMaxY, stepMaxX) \
     num_threads(numThreads)
         for (int y = 0; y < height; y++) {
             if (omp_get_thread_num() == 0) activeCores = omp_get_num_threads();
+            const bool y_edge = (y == 0 || y == height - 1);
+
             for (int x = 0; x < width; x++) {
-                int idx = y * width + x;
-                if (obs_ptr[idx]) continue;
+                const int idx = y * width + x;
+                if (obs_ptr[idx]) {
+                    if (y < stepMinY) stepMinY = y; if (y > stepMaxY) stepMaxY = y;
+                    if (x < stepMinX) stepMinX = x; if (x > stepMaxX) stepMaxX = x;
+                    continue;
+                }
 
-                float f0 = f_ptr[0][idx]; float f1 = f_ptr[1][idx]; float f2 = f_ptr[2][idx];
-                float f3 = f_ptr[3][idx]; float f4 = f_ptr[4][idx]; float f5 = f_ptr[5][idx];
-                float f6 = f_ptr[6][idx]; float f7 = f_ptr[7][idx]; float f8 = f_ptr[8][idx];
+                // 1. PULL STREAMING + BOUNDARY HANDLING
+                float local_f[9];
 
-                float rho = f0 + f1 + f2 + f3 + f4 + f5 + f6 + f7 + f8;
-                rho = fmaxf(0.1f, rho); float invRho = 1.0f / rho;
-                float ux = (f1 - f3 + f5 - f6 - f7 + f8) * invRho;
-                float uy = (f2 - f4 + f5 + f6 - f7 - f8) * invRho;
+                // x=0 is the Inlet
+                if (x == 0) {
+                    const float u = uInlet;
+                    const float term1 = 1.0f - 1.5f * u * u;
+                    const float u3 = 3.0f * u;
+                    const float u45 = 4.5f * u * u;
+                    local_f[0] = weights[0] * term1;
+                    local_f[1] = weights[1] * (term1 + u3 + u45);
+                    local_f[2] = weights[2] * term1;
+                    local_f[3] = weights[3] * (term1 - u3 + u45);
+                    local_f[4] = weights[4] * term1;
+                    local_f[5] = weights[5] * (term1 + u3 + u45);
+                    local_f[6] = weights[6] * (term1 - u3 + u45);
+                    local_f[7] = weights[7] * (term1 - u3 + u45);
+                    local_f[8] = weights[8] * (term1 + u3 + u45);
+                } else {
+                    const bool is_interior = (!y_edge && x < width - 1);
+                    for (int i = 0; i < 9; i++) {
+                        int nx, ny;
+                        if (is_interior) {
+                            nx = x - CX[i]; ny = y - CY[i];
+                        } else {
+                            nx = x - CX[i]; ny = y - CY[i];
+                            if (nx < 0) nx = width - 1; else if (nx >= width) nx = 0;
+                            if (ny < 0 || ny >= height) {
+                                if (boundaryMode == PERIODIC) { if (ny < 0) ny = height - 1; else ny = 0; }
+                                else { local_f[i] = f_ptr[opposite[i]][idx]; continue; }
+                            }
+                        }
+
+                        const int srcIdx = ny * width + nx;
+                        if (obs_ptr[srcIdx]) {
+                            // BFL Interpolated Bounce-Back
+                            float q = lq_ptr[opposite[i]][idx];
+                            if (q <= 0.001f) q = 0.5f;
+                            if (q < 0.5f) {
+                                int nx2 = x + CX[i]; int ny2 = y + CY[i];
+                                if (nx2 < 0) nx2 = width-1; else if (nx2 >= width) nx2 = 0;
+                                if (ny2 < 0) ny2 = height-1; else if (ny2 >= height) ny2 = 0;
+                                local_f[i] = 2.0f * q * f_ptr[opposite[i]][idx] + (1.0f - 2.0f * q) * f_ptr[opposite[i]][ny2 * width + nx2];
+                            } else {
+                                float inv2q = 1.0f / (2.0f * q);
+                                local_f[i] = inv2q * f_ptr[opposite[i]][idx] + (1.0f - inv2q) * fn_ptr[opposite[i]][idx]; // Use partial stream from current pass
+                            }
+                            localDragX += 2.0f * (f_ptr[opposite[i]][idx] - weights[opposite[i]]) * cxs[opposite[i]];
+                            localLiftY += 2.0f * (f_ptr[opposite[i]][idx] - weights[opposite[i]]) * cys[opposite[i]];
+                        } else {
+                            local_f[i] = f_ptr[i][srcIdx];
+                        }
+                    }
+                }
+
+                // 2. MACROSCOPIC MOMENTS
+                const float rho = local_f[0] + local_f[1] + local_f[2] + local_f[3] + local_f[4] + local_f[5] + local_f[6] + local_f[7] + local_f[8];
+                const float invRho = 1.0f / fmaxf(0.1f, rho);
+                float ux = (local_f[1] - local_f[3] + local_f[5] - local_f[6] - local_f[7] + local_f[8]) * invRho;
+                float uy = (local_f[2] - local_f[4] + local_f[5] + local_f[6] - local_f[7] - local_f[8]) * invRho;
 
                 float vMag2 = ux * ux + uy * uy; float vMag = sqrtf(vMag2);
                 if (vMag > 0.45f) { float s = 0.45f / vMag; ux *= s; uy *= s; vMag = 0.45f; vMag2 = 0.2025f; }
                 velocityMag[idx] = vMag;
 
-                // --- Optimized Equilibrium Calculation ---
-                // Precompute terms shared across directions
+                // 3. COLLISION (Regularized BGK + Smagorinsky)
                 const float one_minus_15u2 = 1.0f - 1.5f * vMag2;
                 const float row_w_9 = rho * W1;
                 const float row_w_36 = rho * W2;
@@ -190,123 +245,48 @@ struct LBMEngine {
                 const float ux9 = 4.5f * ux * ux; const float uy9 = 4.5f * uy * uy;
                 const float uxy9 = 9.0f * ux * uy;
 
-                // Manually unrolled D2Q9 Equilibrium & Non-equilibrium extractor
-                // i=0
-                float feq0 = rho * W0 * one_minus_15u2;
-                float neq0 = f0 - feq0;
-                // i=1..4 (Axis directions)
-                float feq1 = row_w_9 * (one_minus_15u2 + ux3 + ux9); float neq1 = f1 - feq1;
-                float feq2 = row_w_9 * (one_minus_15u2 + uy3 + uy9); float neq2 = f2 - feq2;
-                float feq3 = row_w_9 * (one_minus_15u2 - ux3 + ux9); float neq3 = f3 - feq3;
-                float feq4 = row_w_9 * (one_minus_15u2 - uy3 + uy9); float neq4 = f4 - feq4;
-                // i=5..8 (Diagonal directions)
-                float common_diag = one_minus_15u2 + ux9 + uy9;
-                float feq5 = row_w_36 * (common_diag + ux3 + uy3 + uxy9); float neq5 = f5 - feq5;
-                float feq6 = row_w_36 * (common_diag - ux3 + uy3 - uxy9); float neq6 = f6 - feq6;
-                float feq7 = row_w_36 * (common_diag - ux3 - uy3 + uxy9); float neq7 = f7 - feq7;
-                float feq8 = row_w_36 * (common_diag + ux3 - uy3 - uxy9); float neq8 = f8 - feq8;
+                float feq[9];
+                feq[0] = rho * W0 * one_minus_15u2;
+                feq[1] = row_w_9 * (one_minus_15u2 + ux3 + ux9);
+                feq[2] = row_w_9 * (one_minus_15u2 + uy3 + uy9);
+                feq[3] = row_w_9 * (one_minus_15u2 - ux3 + ux9);
+                feq[4] = row_w_9 * (one_minus_15u2 - uy3 + uy9);
+                const float common_diag = one_minus_15u2 + ux9 + uy9;
+                feq[5] = row_w_36 * (common_diag + ux3 + uy3 + uxy9);
+                feq[6] = row_w_36 * (common_diag - ux3 + uy3 - uxy9);
+                feq[7] = row_w_36 * (common_diag - ux3 - uy3 + uxy9);
+                feq[8] = row_w_36 * (common_diag + ux3 - uy3 - uxy9);
 
-                // Pi stress tensor (cxx[i]=cx*cx, cyy[i]=cy*cy, cxy[i]=cx*cy)
-                float pixx = neq1 + neq3 + neq5 + neq6 + neq7 + neq8;
-                float piyy = neq2 + neq4 + neq5 + neq6 + neq7 + neq8;
-                float pixy = neq5 - neq6 + neq7 - neq8;
+                float pixx = (local_f[1]-feq[1]) + (local_f[3]-feq[3]) + (local_f[5]-feq[5]) + (local_f[6]-feq[6]) + (local_f[7]-feq[7]) + (local_f[8]-feq[8]);
+                float piyy = (local_f[2]-feq[2]) + (local_f[4]-feq[4]) + (local_f[5]-feq[5]) + (local_f[6]-feq[6]) + (local_f[7]-feq[7]) + (local_f[8]-feq[8]);
+                float pixy = (local_f[5]-feq[5]) - (local_f[6]-feq[6]) + (local_f[7]-feq[7]) - (local_f[8]-feq[8]);
 
-                float S = sqrtf(pixx * pixx + 2.0f * pixy * pixy + piyy * piyy) * invRho * inv2cs2;
-                float tau_eff = tau_0 + 0.5f * (sqrtf(tau_0 * tau_0 + smagCoeff * S) - tau_0);
-                float one_minus_invTau = 1.0f - (1.0f / fmaxf(tau_eff, 0.501f));
-                float common_reg = one_minus_invTau * regFactor;
+                const float S = sqrtf(pixx * pixx + 2.0f * pixy * pixy + piyy * piyy) * invRho * inv2cs2;
+                const float tau_eff = tau_0 + 0.5f * (sqrtf(tau_0 * tau_0 + smagCoeff * S) - tau_0);
+                const float one_minus_invTau = 1.0f - (1.0f / fmaxf(tau_eff, 0.501f));
+                const float common_reg = one_minus_invTau * regFactor;
 
-                // Final collision results (Regularized BGK)
-                float common_reg_pixx = common_reg * (pixx * (1.0f - cs2) + piyy * (0.0f - cs2));
-                float common_reg_piyy = common_reg * (pixx * (0.0f - cs2) + piyy * (1.0f - cs2));
-                float common_reg_pixy = common_reg * 2.0f * pixy;
+                const float reg_pixx = common_reg * (pixx * (1.0f - cs2) + piyy * (0.0f - cs2));
+                const float reg_piyy = common_reg * (pixx * (0.0f - cs2) + piyy * (1.0f - cs2));
+                const float reg_pixy = common_reg * 2.0f * pixy;
 
-                fp_ptr[0][idx] = feq0 + W0 * common_reg * (-cs2 * (pixx + piyy));
-                fp_ptr[1][idx] = feq1 + W1 * common_reg_pixx;
-                fp_ptr[2][idx] = feq2 + W1 * common_reg_piyy;
-                fp_ptr[3][idx] = feq3 + W1 * common_reg_pixx;
-                fp_ptr[4][idx] = feq4 + W1 * common_reg_piyy;
-                fp_ptr[5][idx] = feq5 + W2 * (common_reg_pixx + common_reg_pixy + common_reg_piyy);
-                fp_ptr[6][idx] = feq6 + W2 * (common_reg_pixx - common_reg_pixy + common_reg_piyy);
-                fp_ptr[7][idx] = feq7 + W2 * (common_reg_pixx + common_reg_pixy + common_reg_piyy);
-                fp_ptr[8][idx] = feq8 + W2 * (common_reg_pixx - common_reg_pixy + common_reg_piyy);
+                fn_ptr[0][idx] = feq[0] + W0 * common_reg * (-cs2 * (pixx + piyy));
+                fn_ptr[1][idx] = feq[1] + W1 * reg_pixx;
+                fn_ptr[2][idx] = feq[2] + W1 * reg_piyy;
+                fn_ptr[3][idx] = feq[3] + W1 * reg_pixx;
+                fn_ptr[4][idx] = feq[4] + W1 * reg_piyy;
+                fn_ptr[5][idx] = feq[5] + W2 * (reg_pixx + reg_pixy + reg_piyy);
+                fn_ptr[6][idx] = feq[6] + W2 * (reg_pixx - reg_pixy + reg_piyy);
+                fn_ptr[7][idx] = feq[7] + W2 * (reg_pixx + reg_pixy + reg_piyy);
+                fn_ptr[8][idx] = feq[8] + W2 * (reg_pixx - reg_pixy + reg_piyy);
 
-                if (std::isnan(fp_ptr[0][idx])) { for(int i=0; i<9; i++) fp_ptr[i][idx] = weights[i]; }
+                if (std::isnan(fn_ptr[0][idx])) { for(int i=0; i<9; i++) fn_ptr[i][idx] = weights[i]; }
 
-                float ps = (rho - 1.0f) * cs2;
-                float pressScale = (uInlet > 0.001f) ? (1.0f / (uInlet * uInlet)) : 100.0f;
+                const float ps = (rho - 1.0f) * cs2;
+                const float pressScale = (uInlet > 0.001f) ? (1.0f / (uInlet * uInlet)) : 100.0f;
                 if (vizMode == VELOCITY) visualizationSource[idx] = vMag;
                 else if (vizMode == PRESSURE) visualizationSource[idx] = 0.5f + ps * pressScale;
                 else visualizationSource[idx] = 0.5f + (ps + 0.5f * rho * vMag2) * pressScale;
-            }
-        }
-
-        // --- PASS 2: Streaming & BFL & Forces ---
-#pragma omp parallel for schedule(static) default(none) \
-    shared(fp_ptr, fn_ptr, obs_ptr, lq_ptr, width, height, opposite, CX, CY, cxs, cys, weights, uInlet, boundaryMode, numThreads) \
-    reduction(+:localDragX, localLiftY) reduction(min:stepMinY, stepMinX) reduction(max:stepMaxY, stepMaxX) \
-    num_threads(numThreads)
-        for (int y = 0; y < height; y++) {
-            bool y_edge = (y == 0 || y == height - 1);
-            for (int x = 0; x < width; x++) {
-                int idx = y * width + x;
-                if (obs_ptr[idx]) {
-                    if (y < stepMinY) stepMinY = y; if (y > stepMaxY) stepMaxY = y;
-                    if (x < stepMinX) stepMinX = x; if (x > stepMaxX) stepMaxX = x;
-                    continue;
-                }
-
-                if (x == 0) {
-                    float u = uInlet;
-                    float term1 = 1.0f - 1.5f * u * u;
-                    float u3 = 3.0f * u;
-                    float u45 = 4.5f * u * u;
-                    fn_ptr[0][idx] = weights[0] * term1;
-                    fn_ptr[1][idx] = weights[1] * (term1 + u3 + u45);
-                    fn_ptr[2][idx] = weights[2] * term1;
-                    fn_ptr[3][idx] = weights[3] * (term1 - u3 + u45);
-                    fn_ptr[4][idx] = weights[4] * term1;
-                    fn_ptr[5][idx] = weights[5] * (term1 + u3 + u45);
-                    fn_ptr[6][idx] = weights[6] * (term1 - u3 + u45);
-                    fn_ptr[7][idx] = weights[7] * (term1 - u3 + u45);
-                    fn_ptr[8][idx] = weights[8] * (term1 + u3 + u45);
-                    continue;
-                }
-
-                bool is_interior = (!y_edge && x > 0 && x < width - 1);
-
-                for (int i = 0; i < 9; i++) {
-                    int nx, ny;
-                    if (is_interior) {
-                        nx = x - CX[i]; ny = y - CY[i];
-                    } else {
-                        nx = x - CX[i]; ny = y - CY[i];
-                        if (nx < 0) nx = width - 1; else if (nx >= width) nx = 0;
-                        if (ny < 0 || ny >= height) {
-                            if (boundaryMode == PERIODIC) { if (ny < 0) ny = height - 1; else ny = 0; }
-                            else { fn_ptr[i][idx] = fp_ptr[opposite[i]][idx]; continue; }
-                        }
-                    }
-
-                    int srcIdx = ny * width + nx;
-                    if (obs_ptr[srcIdx]) {
-                        float q = lq_ptr[opposite[i]][idx];
-                        if (q <= 0.001f) q = 0.5f;
-                        if (q < 0.5f) {
-                            int nx2 = x + CX[i]; int ny2 = y + CY[i];
-                            if (nx2 < 0) nx2 = width-1; else if (nx2 >= width) nx2 = 0;
-                            if (ny2 < 0) ny2 = height-1; else if (ny2 >= height) ny2 = 0;
-                            fn_ptr[i][idx] = 2.0f * q * fp_ptr[opposite[i]][idx] + (1.0f - 2.0f * q) * fp_ptr[opposite[i]][ny2 * width + nx2];
-                        } else {
-                            float inv2q = 1.0f / (2.0f * q);
-                            fn_ptr[i][idx] = inv2q * fp_ptr[opposite[i]][idx] + (1.0f - inv2q) * fn_ptr[opposite[i]][idx];
-                        }
-                        localDragX += 2.0f * (fp_ptr[opposite[i]][idx] - weights[opposite[i]]) * cxs[opposite[i]];
-                        localLiftY += 2.0f * (fp_ptr[opposite[i]][idx] - weights[opposite[i]]) * cys[opposite[i]];
-                    } else {
-                        fn_ptr[i][idx] = fp_ptr[i][srcIdx];
-                    }
-                }
             }
         }
 
@@ -492,6 +472,8 @@ extern "C" JNIEXPORT jlong JNICALL Java_com_example_latticeboltzmann_NativeLBMEn
 extern "C" JNIEXPORT jfloat JNICALL Java_com_example_latticeboltzmann_NativeLBMEngine_getDensityNative(JNIEnv *env, jobject thiz, jlong ptr) { return reinterpret_cast<LBMEngine*>(ptr)->rhoAir; }
 extern "C" JNIEXPORT jfloat JNICALL Java_com_example_latticeboltzmann_NativeLBMEngine_getViscosityNative(JNIEnv *env, jobject thiz, jlong ptr) { return reinterpret_cast<LBMEngine*>(ptr)->nuAir; }
 extern "C" JNIEXPORT jfloat JNICALL Java_com_example_latticeboltzmann_NativeLBMEngine_getDXNative(JNIEnv *env, jobject thiz, jlong ptr) { return reinterpret_cast<LBMEngine*>(ptr)->dx; }
+extern "C" JNIEXPORT jfloat JNICALL Java_com_example_latticeboltzmann_NativeLBMEngine_getHorizontalSpanNative(JNIEnv *env, jobject thiz, jlong ptr) { return reinterpret_cast<LBMEngine*>(ptr)->horizontalSpan; }
+extern "C" JNIEXPORT jfloat JNICALL Java_com_example_latticeboltzmann_NativeLBMEngine_getFrontalAreaNative(JNIEnv *env, jobject thiz, jlong ptr) { return reinterpret_cast<LBMEngine*>(ptr)->frontalArea; }
 extern "C" JNIEXPORT void JNICALL Java_com_example_latticeboltzmann_NativeLBMEngine_setVisualizationModeNative(JNIEnv *env, jobject thiz, jlong ptr, jint m) { reinterpret_cast<LBMEngine*>(ptr)->vizMode = static_cast<LBMEngine::VisualizationMode>(m); }
 extern "C" JNIEXPORT void JNICALL Java_com_example_latticeboltzmann_NativeLBMEngine_setBoundaryModeNative(JNIEnv *env, jobject thiz, jlong ptr, jint mode) {
     reinterpret_cast<LBMEngine*>(ptr)->boundaryMode = static_cast<LBMEngine::BoundaryMode>(mode);

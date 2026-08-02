@@ -130,6 +130,14 @@ class NativeLBMEngine(val width: Int, val height: Int) {
         return if (enginePtr != 0L) getDXNative(enginePtr) else 0.0f
     }
 
+    fun getHorizontalSpan(): Float {
+        return if (enginePtr != 0L) getHorizontalSpanNative(enginePtr) else 0.0f
+    }
+
+    fun getFrontalArea(): Float {
+        return if (enginePtr != 0L) getFrontalAreaNative(enginePtr) else 0.0f
+    }
+
     fun setVisualizationMode(mode: Int) {
         if (enginePtr != 0L) {
             setVisualizationModeNative(enginePtr, mode)
@@ -176,6 +184,8 @@ class NativeLBMEngine(val width: Int, val height: Int) {
     private external fun getDensityNative(ptr: Long): Float
     private external fun getViscosityNative(ptr: Long): Float
     private external fun getDXNative(ptr: Long): Float
+    private external fun getHorizontalSpanNative(ptr: Long): Float
+    private external fun getFrontalAreaNative(ptr: Long): Float
     private external fun destroyEngine(ptr: Long)
     private external fun getMaxCoresNative(): Int
     private external fun setNumThreadsNative(ptr: Long, n: Int)

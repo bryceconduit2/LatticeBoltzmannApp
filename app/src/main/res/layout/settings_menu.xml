@@ -295,14 +295,14 @@
                 android:id="@+id/rbVizPressure"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Pressure"
+                android:text="Static Pressure"
                 android:textColor="@android:color/white" />
 
             <RadioButton
                 android:id="@+id/rbVizTotal"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Total"
+                android:text="Total Pressure"
                 android:textColor="@android:color/white" />
         </RadioGroup>
 
