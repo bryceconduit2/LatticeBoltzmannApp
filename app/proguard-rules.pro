@@ -17,6 +17,10 @@
     *;
 }
 
+# Keep Custom Views to prevent layout inflation errors
+-keep class com.bc.fluidsandbox.WindTunnelView { *; }
+-keep class com.bc.fluidsandbox.ForceGraphView { *; }
+
 # Keep the Native methods
 -keepclasseswithmembernames class * {
     native <methods>;
@@ -25,6 +29,12 @@
 # Uncomment this to preserve the line number information for
 # debugging stack traces.
 -keepattributes SourceFile,LineNumberTable
+
+# Strip Debug and Verbose logs for Production performance/privacy
+-assumenosideeffects class android.util.Log {
+    public static *** d(...);
+    public static *** v(...);
+}
 
 # If you keep the line number information, uncomment this to
 # hide the original source file name.

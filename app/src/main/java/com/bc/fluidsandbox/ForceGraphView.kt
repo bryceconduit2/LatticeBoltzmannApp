@@ -6,20 +6,30 @@ import android.util.AttributeSet
 import android.view.View
 import java.util.Locale
 
+/**
+ * Custom View that renders high-precision physics telemetry as a real-time plot.
+ * 
+ * It supports plotting both aerodynamic forces (Newtons) and coefficients (Cd, Cl).
+ * It automatically scales the Y-axis based on the historical data range.
+ */
 class ForceGraphView @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null,
 ) : View(context, attrs) {
 
+    // Toggle between raw Newton forces and normalized coefficients
     enum class DisplayMode { FORCE, COEFFICIENT }
     var displayMode = DisplayMode.FORCE
     
+    // Data structure for a single simulation point
     data class ForcePoint(val time: Float, val drag: Float, val lift: Float, val cd: Float, val cl: Float)
     private var history = listOf<ForcePoint>()
 
+    // Utility for density-independent pixel scaling
     private fun dpToPx(dp: Float): Float = dp * resources.displayMetrics.density
     private fun spToPx(sp: Float): Float = sp * resources.displayMetrics.scaledDensity
 
+    // --- Paint Definitions ---
     private val dragPaint = Paint().apply {
         color = Color.RED
         style = Paint.Style.STROKE
@@ -56,6 +66,9 @@ class ForceGraphView @JvmOverloads constructor(
     private val dragPath = Path()
     private val liftPath = Path()
 
+    /**
+     * Updates the local data list and triggers a re-draw.
+     */
     fun updateData(newHistory: List<ForcePoint>) {
         history = newHistory.toList()
         invalidate()
@@ -65,11 +78,13 @@ class ForceGraphView @JvmOverloads constructor(
         super.onDraw(canvas)
         if (history.isEmpty()) return
 
+        // Define graph boundaries
         val padding = dpToPx(48f)
         val graphWidth = width - 2 * padding
         val graphHeight = height - 2 * padding
 
-        // Find scale ranges based on display mode
+        // --- SCALE CALCULATION ---
+        // Find the absolute min/max values in the current history to auto-scale the graph
         var minVal = 0f
         var maxVal = if (displayMode == DisplayMode.FORCE) 10f else 2f
         
@@ -88,11 +103,11 @@ class ForceGraphView @JvmOverloads constructor(
         val maxTime = history.last().time
         val rangeTime = (maxTime - minTime).coerceAtLeast(0.001f)
 
-        // Draw Axes and Grid
+        // --- GRID & AXES ---
         canvas.drawLine(padding, padding, padding, height - padding, textPaint) // Y Axis
         canvas.drawLine(padding, height - padding, width - padding, height - padding, textPaint) // X Axis
 
-        // Draw horizontal grid lines and labels
+        // Draw horizontal grid lines and data labels
         val gridLines = 5
         val unitLabel = if (displayMode == DisplayMode.FORCE) "N" else ""
         
@@ -109,7 +124,7 @@ class ForceGraphView @JvmOverloads constructor(
             canvas.drawText(labelText, dpToPx(4f), y + dpToPx(4f), textPaint)
         }
 
-        // Draw vertical grid lines and time labels
+        // Draw vertical grid lines and time signatures
         val timeLines = 4
         for (i in 0..timeLines) {
             val x = padding + (i.toFloat() / timeLines) * graphWidth
@@ -118,19 +133,19 @@ class ForceGraphView @JvmOverloads constructor(
             canvas.drawText(String.format(Locale.US, "%.3fs", timeValue), x - dpToPx(16f), height - padding + dpToPx(20f), textPaint)
         }
 
-        // Draw Zero Reference Line
+        // Draw Zero Reference Line (dashed)
         if (minVal <= 0f && maxVal >= 0f) {
             val yZero = height - padding - ((0f - minVal) / rangeVal) * graphHeight
             canvas.drawLine(padding, yZero, width - padding, yZero, zeroLinePaint)
         }
 
-        // Prepare Paths
+        // --- PATH GENERATION ---
         dragPath.reset()
         liftPath.reset()
 
         history.forEachIndexed { i, pt ->
+            // Map data coordinates to pixel coordinates
             val x = padding + ((pt.time - minTime) / rangeTime) * graphWidth
-            
             val vDrag = if (displayMode == DisplayMode.FORCE) pt.drag else pt.cd
             val vLift = if (displayMode == DisplayMode.FORCE) pt.lift else pt.cl
             
@@ -146,10 +161,12 @@ class ForceGraphView @JvmOverloads constructor(
             }
         }
 
+        // Commit paths to canvas
         canvas.drawPath(dragPath, dragPaint)
         canvas.drawPath(liftPath, liftPaint)
 
-        // Calculate averages - skipping the first 0.05s of simulation time to allow settling
+        // --- STATISTICS CALCULATION ---
+        // Calculate averages, skipping the initial turbulence to allow settling
         var sumDrag = 0f
         var sumLift = 0f
         var sumCd = 0f
@@ -171,7 +188,7 @@ class ForceGraphView @JvmOverloads constructor(
         val avgCd = if (count > 0) sumCd / count else 0f
         val avgCl = if (count > 0) sumCl / count else 0f
 
-        // Legend - With clearer labels and indicators
+        // --- LEGEND RENDERING ---
         val legendY = padding - dpToPx(16f)
         val modeLabel = if (displayMode == DisplayMode.FORCE) "Forces" else "Coefficients"
         

@@ -1,3 +1,15 @@
+/**
+ * Fluid Sandbox Physics Engine
+ * Core Implementation: Lattice Boltzmann Method (LBM)
+ *
+ * Technical Specifications:
+ * - Lattice Model: D2Q9 (2 Dimensions, 9 Velocity Vectors)
+ * - Collision Operator: Regularized BGK (Bhatnagar-Gross-Krook)
+ * - Turbulence Model: Smagorinsky Subgrid-Scale (LES)
+ * - Boundary Scheme: Bouzidi–Firdaouss–Lallemand (BFL) for curved/interpolated walls
+ * - Parallelism: OpenMP (Shared memory multi-threading)
+ */
+
 #include <jni.h>
 #include <android/bitmap.h>
 #include <android/log.h>
@@ -8,6 +20,7 @@
 #include <omp.h>
 #include <chrono>
 
+// Debugging macros - Disabled in Release builds for performance
 #define LOG_TAG "LBM_ENGINE"
 #ifdef NDEBUG
 #define LOGI(...) ((void)0)
@@ -16,14 +29,17 @@
 #endif
 
 /**
- * Precomputed equilibrium weights
+ * LBM weights for the D2Q9 model.
+ * Sum to 1.0; used to calculate equilibrium distributions.
  */
 const float W0 = 4.0f/9.0f;
 const float W1 = 1.0f/9.0f;
 const float W2 = 1.0f/36.0f;
 
 /**
- * Fast Heatmap Color Mapper
+ * Fast Heatmap Color Mapper.
+ * Maps normalized fluid property (0.0 to 1.0) to a high-contrast temperature scale.
+ * Colors: Blue (Slow) -> Cyan -> Green -> Yellow -> Red (Fast)
  */
 inline uint32_t heatMapColor(float value) {
     value = fmaxf(0.0f, fminf(1.0f, value));
@@ -32,30 +48,40 @@ inline uint32_t heatMapColor(float value) {
     else if (value < 0.5f) { r = 0.0f; g = 1.0f; b = 1.0f - 4.0f * (value - 0.25f); }
     else if (value < 0.75f) { r = 4.0f * (value - 0.5f); g = 1.0f; b = 0.0f; }
     else { r = 1.0f; g = 1.0f - 4.0f * (value - 0.75f); b = 0.0f; }
+    // Android Bitmap ARGB_8888 (Little Endian: 0xAABBGGRR)
     return 0xFF000000 | (static_cast<uint32_t>(b * 255.0f) << 16) | (static_cast<uint32_t>(g * 255.0f) << 8) | static_cast<uint32_t>(r * 255.0f);
 }
 
+/**
+ * Data structure to return integrated aerodynamic forces.
+ */
 struct ForceResult {
     float drag;
     float lift;
 };
 
+/**
+ * MAIN ENGINE CLASS
+ * Encapsulates the entire Lattice Boltzmann grid and solver state.
+ */
 struct LBMEngine {
     enum VisualizationMode { VELOCITY = 0, PRESSURE = 1, TOTAL_PRESSURE = 2 };
     enum BoundaryMode { PERIODIC = 0, NO_SLIP = 1, FREE_SLIP = 2 };
 
     int width, height;
-    float uInlet = 0.06f;
-    float uInletTarget = 0.06f;
-    float omega = 1.0f / 0.55f;
-    const float cs2 = 1.0f / 3.0f;
-    const float SmagorinskyConstant = 0.16f;
+    float uInlet = 0.06f;       // Current inlet velocity in lattice units
+    float uInletTarget = 0.06f; // Target velocity for smoothing
+    float omega = 1.0f / 0.55f; // Base relaxation frequency
+    const float cs2 = 1.0f / 3.0f; // Speed of sound squared
+    const float SmagorinskyConstant = 0.16f; // Subgrid turbulence parameter
 
-    const float dx = 0.0025f;
-    float dt = 0.000005f;
-    float rhoAir = 1.225f;
-    float nuAir = 1.5e-5f;
+    // Physical calibration constants
+    const float dx = 0.0025f;     // Grid spacing (meters)
+    float dt = 0.000005f;         // Time step (seconds)
+    float rhoAir = 1.225f;        // Density (kg/m^3)
+    float nuAir = 1.5e-5f;        // Kinematic viscosity (m^2/s)
 
+    // Telemetry readouts
     float dragForceNewtons = 0.0f;
     float dragCoefficient = 0.0f;
     float liftForceNewtons = 0.0f;
@@ -71,20 +97,24 @@ struct LBMEngine {
     VisualizationMode vizMode = VELOCITY;
     BoundaryMode boundaryMode = PERIODIC;
 
+    // Distribution functions (Stored as Structure-of-Arrays for SIMD optimization)
     std::vector<float> f[9];
     std::vector<float> fNew[9];
     std::vector<uint8_t> obstacles;
-    std::vector<float> linkQ[9]; // BFL: distance q to the wall (0.0 if not a boundary link)
+    std::vector<float> linkQ[9]; // BFL: fractional distance to actual curved wall
     std::vector<float> velocityMag;
     std::vector<float> visualizationSource;
     std::vector<float> smoothedVelocityMag;
 
     uint32_t colorLUT[256];
 
+    // D2Q9 Lattice Vectors
     const float cxs[9] = {0.0f, 1.0f, 0.0f, -1.0f, 0.0f, 1.0f, -1.0f, -1.0f, 1.0f};
     const float cys[9] = {0.0f, 0.0f, 1.0f, 0.0f, -1.0f, 1.0f, 1.0f, -1.0f, -1.0f};
     const float weights[9] = {4.f/9, 1.f/9, 1.f/9, 1.f/9, 1.f/9, 1.f/36, 1.f/36, 1.f/36, 1.f/36};
     const int opposite[9] = {0, 3, 4, 1, 2, 7, 8, 5, 6};
+
+    // Precomputed components for the stress tensor calculation
     const float cxx[9] = {0, 1, 0, 1, 0, 1, 1, 1, 1};
     const float cyy[9] = {0, 0, 1, 0, 1, 1, 1, 1, 1};
     const float cxy[9] = {0, 0, 0, 0, 0, 1, -1, 1, -1};
@@ -97,7 +127,7 @@ struct LBMEngine {
         for (int i = 0; i < 9; i++) {
             f[i].resize(size, 0.0f);
             fNew[i].resize(size, 0.0f);
-            linkQ[i].resize(size, 0.0f);
+            linkQ[i].resize(size, 0.5f);
         }
         obstacles.resize(size, 0);
         velocityMag.resize(size, 0.0f);
@@ -106,6 +136,9 @@ struct LBMEngine {
         initFluid(uInlet);
     }
 
+    /**
+     * Initializes the grid with a uniform flow field.
+     */
     void initFluid(float velocity) {
         float usqr = 1.5f * (velocity * velocity);
         for (int idx = 0; idx < width * height; idx++) {
@@ -119,7 +152,7 @@ struct LBMEngine {
 
     void reset() {
         std::fill(obstacles.begin(), obstacles.end(), 0);
-        for (int i = 0; i < 9; i++) std::fill(linkQ[i].begin(), linkQ[i].end(), 0.0f);
+        for (int i = 0; i < 9; i++) std::fill(linkQ[i].begin(), linkQ[i].end(), 0.5f);
         std::fill(velocityMag.begin(), velocityMag.end(), 0.0f);
         std::fill(visualizationSource.begin(), visualizationSource.end(), 0.0f);
         std::fill(smoothedVelocityMag.begin(), smoothedVelocityMag.end(), 0.0f);
@@ -130,15 +163,18 @@ struct LBMEngine {
     }
 
     /**
-     * Executes a single time step of the LBM algorithm.
-     * Fused Single-Pass Kernel: Pull-Streaming + Regularized BGK + Smagorinsky + BFL.
-     * This drastically reduces memory bandwidth requirements.
+     * CORE SIMULATION KERNEL.
+     * Executes a single Time Step. Fused logic significantly improves cache performance.
      */
     ForceResult step() {
         totalSteps++;
+        // Smoothly adjust inlet velocity to prevent numerical shocks
         uInlet = uInlet * 0.99f + uInletTarget * 0.01f;
+
+        // Calculate lattice-space viscosity and relaxation time
         const float nuLB = nuAir * dt / (dx * dx);
         const float tau_0 = 3.0f * nuLB + 0.5f;
+
         const float inv2cs2 = 1.5f;
         const float inv2cs4 = 4.5f;
         const float regFactor = 0.98f * inv2cs4;
@@ -171,16 +207,17 @@ struct LBMEngine {
             for (int x = 0; x < width; x++) {
                 const int idx = y * width + x;
                 if (obs_ptr[idx]) {
+                    // Update bounding box of obstacles for area-based aerodynamics
                     if (y < stepMinY) stepMinY = y; if (y > stepMaxY) stepMaxY = y;
                     if (x < stepMinX) stepMinX = x; if (x > stepMaxX) stepMaxX = x;
                     continue;
                 }
 
-                // 1. PULL STREAMING (Pulling packet i from neighbor at -Ci)
+                // --- 1. PULL STREAMING & BOUNDARY COLLISION ---
                 float local_f[9];
 
-                // x=0 is the Inlet
                 if (x == 0) {
+                    // Inlet Boundary: Constant velocity equilibrium
                     const float u = uInlet;
                     const float term1 = 1.0f - 1.5f * u * u;
                     const float u3 = 3.0f * u;
@@ -195,17 +232,16 @@ struct LBMEngine {
                     local_f[7] = W2 * (term1 - u3 + u45);
                     local_f[8] = W2 * (term1 + u3 + u45);
                 } else {
-                    const bool is_interior = (!y_edge && x < width - 1);
                     for (int i = 0; i < 9; i++) {
                         int nx = x - CX[i];
                         int ny = y - CY[i];
 
+                        // Top/Bottom walls or Periodic wrap
                         if (nx < 0) nx = width - 1; else if (nx >= width) nx = 0;
                         if (ny < 0 || ny >= height) {
                             if (boundaryMode == PERIODIC) {
                                 if (ny < 0) ny = height - 1; else ny = 0;
                             } else {
-                                // Boundary walls top/bottom
                                 local_f[i] = f_ptr[opposite[i]][idx];
                                 continue;
                             }
@@ -213,9 +249,8 @@ struct LBMEngine {
 
                         const int srcIdx = ny * width + nx;
                         if (obs_ptr[srcIdx]) {
-                            // Current node idx is fluid, neighbor srcIdx is solid.
-                            // Neighbor is in direction opposite[i] from idx?
-                            // No. nx = x - CX[i] means the neighbor is at C[opposite[i]] relative to X.
+                            // INTERPOLATED BOUNDARY CONDITION (BFL Scheme)
+                            // Calculates exact reflection based on obstacle surface distance 'q'
                             const int dir_to_wall = opposite[i];
                             const float q = lq_ptr[dir_to_wall][idx];
                             const float fi_out = f_ptr[dir_to_wall][idx];
@@ -232,18 +267,17 @@ struct LBMEngine {
                             }
                             local_f[i] = fi_in;
 
-                            // Momentum Exchange Force
-                            if (y > 1 && y < height - 2) {
-                                totalForceX += (double)(fi_out + fi_in) * (double)CX[dir_to_wall];
-                                totalForceY += (double)(fi_out + fi_in) * (double)CY[dir_to_wall];
-                            }
+                            // Momentum Exchange: Integrate forces (Drag and Lift)
+                            totalForceX += (double)(fi_out + fi_in) * (double)CX[dir_to_wall];
+                            totalForceY += (double)(fi_out + fi_in) * (double)CY[dir_to_wall];
                         } else {
-                            local_f[i] = f_ptr[i][srcIdx];
+                            local_f[i] = f_ptr[i][srcIdx]; // Regular fluid streaming
                         }
                     }
                 }
 
-                // 2. MACROSCOPIC MOMENTS
+                // --- 2. MACROSCOPIC MOMENTS ---
+                // Calculate Density (Rho) and Velocity (u)
                 const float rho = local_f[0] + local_f[1] + local_f[2] + local_f[3] + local_f[4] + local_f[5] + local_f[6] + local_f[7] + local_f[8];
                 const float invRho = 1.0f / fmaxf(0.1f, rho);
                 float ux = (local_f[1] - local_f[3] + local_f[5] - local_f[6] - local_f[7] + local_f[8]) * invRho;
@@ -253,7 +287,8 @@ struct LBMEngine {
                 if (vMag > 0.45f) { float s = 0.45f / vMag; ux *= s; uy *= s; vMag = 0.45f; vMag2 = 0.2025f; }
                 velocityMag[idx] = vMag;
 
-                // 3. COLLISION (Regularized BGK + Smagorinsky)
+                // --- 3. COLLISION (Regularized BGK + Smagorinsky) ---
+                // Regularization filters out non-physical modes for higher stability
                 const float one_minus_15u2 = 1.0f - 1.5f * vMag2;
                 const float row_w_9 = rho * W1;
                 const float row_w_36 = rho * W2;
@@ -261,7 +296,7 @@ struct LBMEngine {
                 const float ux9 = 4.5f * ux * ux; const float uy9 = 4.5f * uy * uy;
                 const float uxy9 = 9.0f * ux * uy;
 
-                float feq[9];
+                float feq[9]; // Equilibrium Distribution
                 feq[0] = rho * W0 * one_minus_15u2;
                 feq[1] = row_w_9 * (one_minus_15u2 + ux3 + ux9);
                 feq[2] = row_w_9 * (one_minus_15u2 + uy3 + uy9);
@@ -273,10 +308,12 @@ struct LBMEngine {
                 feq[7] = row_w_36 * (common_diag - ux3 - uy3 + uxy9);
                 feq[8] = row_w_36 * (common_diag + ux3 - uy3 - uxy9);
 
+                // Compute local Stress Tensor for the Smagorinsky model
                 float pixx = (local_f[1]-feq[1]) + (local_f[3]-feq[3]) + (local_f[5]-feq[5]) + (local_f[6]-feq[6]) + (local_f[7]-feq[7]) + (local_f[8]-feq[8]);
                 float piyy = (local_f[2]-feq[2]) + (local_f[4]-feq[4]) + (local_f[5]-feq[5]) + (local_f[6]-feq[6]) + (local_f[7]-feq[7]) + (local_f[8]-feq[8]);
                 float pixy = (local_f[5]-feq[5]) - (local_f[6]-feq[6]) + (local_f[7]-feq[7]) - (local_f[8]-feq[8]);
 
+                // Smagorinsky LES: Adjusts viscosity based on local turbulence intensity
                 const float S = sqrtf(pixx * pixx + 2.0f * pixy * pixy + piyy * piyy) * invRho * inv2cs2;
                 const float tau_eff = tau_0 + 0.5f * (sqrtf(tau_0 * tau_0 + smagCoeff * S) - tau_0);
                 const float one_minus_invTau = 1.0f - (1.0f / fmaxf(tau_eff, 0.501f));
@@ -286,6 +323,7 @@ struct LBMEngine {
                 const float reg_piyy = common_reg * (pixx * (0.0f - cs2) + piyy * (1.0f - cs2));
                 const float reg_pixy = common_reg * 2.0f * pixy;
 
+                // FINAL COLLISION STEP: Store result in fNew
                 fn_ptr[0][idx] = feq[0] + W0 * common_reg * (-cs2 * (pixx + piyy));
                 fn_ptr[1][idx] = feq[1] + W1 * reg_pixx;
                 fn_ptr[2][idx] = feq[2] + W1 * reg_piyy;
@@ -296,8 +334,10 @@ struct LBMEngine {
                 fn_ptr[7][idx] = feq[7] + W2 * (reg_pixx + reg_pixy + reg_piyy);
                 fn_ptr[8][idx] = feq[8] + W2 * (reg_pixx - reg_pixy + reg_piyy);
 
+                // Numerical Safety: Check for NaN divergence
                 if (std::isnan(fn_ptr[0][idx])) { for(int i=0; i<9; i++) fn_ptr[i][idx] = weights[i]; }
 
+                // --- DATA PREPARATION FOR VISUALIZATION ---
                 const float ps = (rho - 1.0f) * cs2;
                 const float pressScale = (uInlet > 0.001f) ? (1.0f / (uInlet * uInlet)) : 100.0f;
                 if (vizMode == VELOCITY) visualizationSource[idx] = vMag;
@@ -306,12 +346,17 @@ struct LBMEngine {
             }
         }
 
+        // Finalize aerodynamic geometric stats
         if (stepMaxY >= stepMinY) frontalArea = static_cast<float>(stepMaxY - stepMinY + 1) * dx; else frontalArea = 0.0f;
         if (stepMaxX >= stepMinX) horizontalSpan = static_cast<float>(stepMaxX - stepMinX + 1) * dx; else horizontalSpan = 0.0f;
+
+        // Finalize Time Step: Swap grid buffers
         for (int i = 0; i < 9; i++) f[i].swap(fNew[i]);
         return {(float)totalForceX, -(float)totalForceY};
     }
 };
+
+// --- JNI INTERFACE (Bridging C++ to Kotlin) ---
 
 extern "C" JNIEXPORT jlong JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_initEngine(JNIEnv *env, jobject thiz, jint width, jint height) {
     return (jlong)(uintptr_t)new LBMEngine(width, height);
@@ -319,6 +364,11 @@ extern "C" JNIEXPORT jlong JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_init
 extern "C" JNIEXPORT void JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_destroyEngine(JNIEnv *env, jobject thiz, jlong ptr) {
     delete reinterpret_cast<LBMEngine*>(ptr);
 }
+
+/**
+ * Circle Drawing: Uses standard circle equation to mask the grid.
+ * Also computes BFL 'q' values for smooth boundary reflection.
+ */
 extern "C" JNIEXPORT void JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_addObstacleNative(JNIEnv *env, jobject thiz, jlong ptr, jint cx, jint cy, jint radius) {
     auto* e = reinterpret_cast<LBMEngine*>(ptr); int r2 = radius * radius; float R = (float)radius;
     for (int y = std::max(0, cy - radius); y <= std::min(e->height - 1, cy + radius); y++)
@@ -344,6 +394,10 @@ extern "C" JNIEXPORT void JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_addOb
         }
     }
 }
+
+/**
+ * Box Drawing: Simplest obstacle type. Fixed q=0.5 (Staircase) for now.
+ */
 extern "C" JNIEXPORT void JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_addBoxObstacleNative(JNIEnv *env, jobject thiz, jlong ptr, jint cx, jint cy, jint size) {
     auto* e = reinterpret_cast<LBMEngine*>(ptr); int h = size / 2;
     for (int y = std::max(0, cy - h); y <= std::min(e->height - 1, cy + h); y++)
@@ -358,6 +412,11 @@ extern "C" JNIEXPORT void JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_addBo
         }
     }
 }
+
+/**
+ * NACA Airfoil Drawing: Implements the standard NACA 4-digit parametric chord equations.
+ * Supports Angle of Attack (Degrees) and camber (m, p) / thickness (t).
+ */
 extern "C" JNIEXPORT void JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_addNacaAirfoilNative(
         JNIEnv *env, jobject thiz, jlong ptr, jint cx, jint cy, jint chord, jfloat m, jfloat p, jfloat t, jfloat angleDegrees) {
     auto* e = reinterpret_cast<LBMEngine*>(ptr); if (chord <= 0) return;
@@ -390,9 +449,14 @@ extern "C" JNIEXPORT void JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_addNa
         }
     }
 }
+
 extern "C" JNIEXPORT void JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_setDensityNative(JNIEnv *env, jobject thiz, jlong ptr, jfloat d) { reinterpret_cast<LBMEngine*>(ptr)->rhoAir = d; }
 extern "C" JNIEXPORT void JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_setViscosityNative(JNIEnv *env, jobject thiz, jlong ptr, jfloat v) { reinterpret_cast<LBMEngine*>(ptr)->nuAir = v; }
 extern "C" JNIEXPORT void JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_setDeltaTimeNative(JNIEnv *env, jobject thiz, jlong ptr, jfloat dt) { reinterpret_cast<LBMEngine*>(ptr)->dt = dt; }
+
+/**
+ * Headless Simulation Step: Used for high-speed background computations.
+ */
 extern "C" JNIEXPORT void JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_stepNative(JNIEnv *env, jobject thiz, jlong ptr, jint steps) {
     auto* e = reinterpret_cast<LBMEngine*>(ptr);
     if (!e) return;
@@ -422,9 +486,17 @@ extern "C" JNIEXPORT void JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_stepN
     }
 }
 
+/**
+ * FUSED PHYSICS & RENDER CALL.
+ * Executes simulation and maps the result to the Android Bitmap in one JNI pass.
+ */
 extern "C" JNIEXPORT void JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_stepAndRenderNative(JNIEnv *env, jobject thiz, jlong ptr, jobject bitmap, jint steps) {
     auto* e = reinterpret_cast<LBMEngine*>(ptr); double dragAcc = 0.0; double liftAcc = 0.0;
+
+    // 1. EXECUTE PHYSICS
     for (int i = 0; i < steps; i++) { ForceResult res = e->step(); dragAcc += (double)res.drag; liftAcc += (double)res.lift; }
+
+    // 2. POST-PROCESS AERODYNAMIC COEFFICIENTS
     if (steps > 0) {
         float avgD = (float)(dragAcc / steps); float avgL = (float)(liftAcc / steps);
         float conv = e->rhoAir * (e->dx * e->dx * e->dx) / (e->dt * e->dt);
@@ -436,9 +508,6 @@ extern "C" JNIEXPORT void JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_stepA
             float instantCl = avgL / (dynP * refL);
             e->dragCoefficient = instantCd;
             e->liftCoefficient = instantCl;
-
-            // EMA Damping (Alpha=0.02 for ~50 frame stability window)
-            // This dampens the Kármán vortex oscillations for the UI readout
             e->smoothedCd = e->smoothedCd * 0.98f + instantCd * 0.02f;
             e->smoothedCl = e->smoothedCl * 0.98f + instantCl * 0.02f;
         } else {
@@ -446,6 +515,8 @@ extern "C" JNIEXPORT void JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_stepA
             e->smoothedCd = 0; e->smoothedCl = 0;
         }
     }
+
+    // 3. RENDER DIRECTLY TO BITMAP PIXELS
     void* pixels; if (AndroidBitmap_lockPixels(env, bitmap, &pixels) < 0) return;
     auto* bmp = static_cast<uint32_t*>(pixels);
     int w = e->width; int h = e->height; float invMaxV = 255.0f / (e->uInlet * 1.8f);
@@ -453,25 +524,26 @@ extern "C" JNIEXPORT void JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_stepA
     const uint8_t* obs = e->obstacles.data(); const float* src = e->visualizationSource.data();
     float* sm = e->smoothedVelocityMag.data(); uint32_t* lut = e->colorLUT;
 
-    // --- HIGH QUALITY RENDER PASS (Spatial + Temporal Smoothing) ---
+    // --- SPATIAL + TEMPORAL SMOOTHING PASS ---
+    // Smooths out pixel aliasing and high-frequency numerical noise
 #pragma omp parallel for default(none) shared(obs, src, sm, bmp, w, h, invMaxV, invC, lut, e) schedule(static) \
     num_threads(e->numThreads)
     for (int y = 0; y < h; y++) {
         bool y_edge = (y == 0 || y == h - 1);
         for (int x = 0; x < w; x++) {
             int idx = y * w + x;
-            if (obs[idx]) { sm[idx] = 0; bmp[idx] = 0xFF000000; continue; }
+            if (obs[idx]) { sm[idx] = 0; bmp[idx] = 0xFF000000; continue; } // Black Obstacles
 
             float sum = 0;
             int count = 0;
 
             if (!y_edge && x > 0 && x < w - 1) {
-                // Fast Path Interior
+                // High-performance interior pass (unrolled)
                 int t = idx - w; int b = idx + w;
                 sum = src[t-1]+src[t]+src[t+1]+src[idx-1]+src[idx]+src[idx+1]+src[b-1]+src[b]+src[b+1];
                 count = (1-obs[t-1])+(1-obs[t])+(1-obs[t+1])+(1-obs[idx-1])+(1-obs[idx])+(1-obs[idx+1])+(1-obs[b-1])+(1-obs[b])+(1-obs[b+1]);
             } else {
-                // Slow Path Edges
+                // Edge pass with bounds checking
                 for (int dy = -1; dy <= 1; dy++) {
                     int ny = y + dy;
                     if (ny >= 0 && ny < h) {
@@ -487,6 +559,7 @@ extern "C" JNIEXPORT void JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_stepA
                 }
             }
 
+            // Apply Temporal Damping (70% prev, 30% current) for smooth visuals
             float rv = sm[idx] * 0.7f + (sum * invC[count]) * 0.3f;
             sm[idx] = rv;
             int ci = (int)(rv * ((e->vizMode == LBMEngine::VELOCITY) ? invMaxV : 255.0f));
@@ -495,19 +568,20 @@ extern "C" JNIEXPORT void JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_stepA
     }
     AndroidBitmap_unlockPixels(env, bitmap);
 }
+
 extern "C" JNIEXPORT void JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_resetSimulationNative(JNIEnv *env, jobject thiz, jlong ptr) { reinterpret_cast<LBMEngine*>(ptr)->reset(); }
+
 extern "C" JNIEXPORT void JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_setInletVelocityNative(JNIEnv *env, jobject thiz, jlong ptr, jfloat v) {
     auto* e = reinterpret_cast<LBMEngine*>(ptr);
-    // Convert physical velocity (m/s) to lattice velocity using current dt
     float uL = v * e->dt / e->dx;
     e->uInletTarget = fmaxf(0.0f, fminf(0.45f, uL));
 }
 
 extern "C" JNIEXPORT jfloat JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_getInletVelocityNative(JNIEnv *env, jobject thiz, jlong ptr) {
     auto* e = reinterpret_cast<LBMEngine*>(ptr);
-    // Always report physical velocity based on the CURRENT dt in the engine
     return e->uInlet * e->dx / e->dt;
 }
+
 extern "C" JNIEXPORT jfloat JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_getDragForceNative(JNIEnv *env, jobject thiz, jlong ptr) { return reinterpret_cast<LBMEngine*>(ptr)->dragForceNewtons; }
 extern "C" JNIEXPORT jfloat JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_getDragCoefficientNative(JNIEnv *env, jobject thiz, jlong ptr) {
     return reinterpret_cast<LBMEngine*>(ptr)->smoothedCd;

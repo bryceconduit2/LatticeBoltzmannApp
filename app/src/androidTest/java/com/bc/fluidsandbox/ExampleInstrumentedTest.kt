@@ -9,9 +9,10 @@ import org.junit.runner.RunWith
 import org.junit.Assert.*
 
 /**
- * Instrumented test, which will execute on an Android device.
- *
- * See [testing documentation](http://d.android.com/tools/testing).
+ * Basic Integration Test for Fluid Sandbox.
+ * 
+ * This ensures that the Android system is providing the correct package context
+ * and that the basic application environment is stable.
  */
 @RunWith(AndroidJUnit4::class)
 class ExampleInstrumentedTest {

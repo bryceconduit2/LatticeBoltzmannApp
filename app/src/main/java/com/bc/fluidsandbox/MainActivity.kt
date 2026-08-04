@@ -15,12 +15,20 @@ import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.bc.fluidsandbox.R
 import java.util.Locale
 
+/**
+ * Main Controller for the Fluid Sandbox Application.
+ * 
+ * This activity handles high-level UI orchestration, connects the simulation view
+ * to the settings menu, and manages the real-time telemetry graph logic.
+ */
 class MainActivity : AppCompatActivity() {
+    
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        supportActionBar?.hide()
+        supportActionBar?.hide() // Immersive aesthetic
         setContentView(R.layout.activity_main)
 
+        // --- View Identifiers ---
         val windTunnelView = findViewById<WindTunnelView>(R.id.windTunnelView)
         val btnReset = findViewById<Button>(R.id.btnReset)
         val btnSettings = findViewById<Button>(R.id.btnSettings)
@@ -31,17 +39,18 @@ class MainActivity : AppCompatActivity() {
         val btnCloseGraph = findViewById<Button>(R.id.btnCloseGraph)
         val rgGraphMode = findViewById<RadioGroup>(R.id.rgGraphMode)
 
+        // --- Simulation Controls ---
         btnReset.setOnClickListener {
-            windTunnelView.reset()
+            windTunnelView.reset() // Clears obstacles and wakes
         }
 
         btnSettings.setOnClickListener {
-            showSettingsMenu(windTunnelView)
+            showSettingsMenu(windTunnelView) // Launch configuration menu
         }
         
         btnGraph.setOnClickListener {
             graphContainer.visibility = android.view.View.VISIBLE
-            updateGraphLoop(windTunnelView, forceGraphView, graphContainer)
+            updateGraphLoop(windTunnelView, forceGraphView, graphContainer) // Start data stream
         }
 
         btnCloseGraph.setOnClickListener {
@@ -56,23 +65,32 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // Go Fullscreen
+        // --- IMMERSIVE SYSTEM UI CONFIGURATION ---
         WindowCompat.setDecorFitsSystemWindows(window, false)
         WindowInsetsControllerCompat(window, window.decorView).let { controller ->
-            controller.hide(WindowInsetsCompat.Type.systemBars())
+            controller.hide(WindowInsetsCompat.Type.systemBars()) // Hide nav and status bars
             controller.systemBarsBehavior =
                 WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         }
     }
 
+    /**
+     * Inflates and manages the BottomSheet configuration menu.
+     * Connects all SeekBars and Switches to the underlying WindTunnelView.
+     */
     private fun showSettingsMenu(windTunnelView: WindTunnelView) {
         val dialog = BottomSheetDialog(this)
         val view = LayoutInflater.from(this).inflate(R.layout.settings_menu, null)
         dialog.setContentView(view)
 
+        // Find all interactive elements in the menu
         val rgSize = view.findViewById<RadioGroup>(R.id.rgSize)
         val sbSpeed = view.findViewById<SeekBar>(R.id.sbSpeed)
         val tvSpeedValue = view.findViewById<TextView>(R.id.tvSpeedValue)
+        val sbDensity = view.findViewById<SeekBar>(R.id.sbDensity)
+        val tvDensityValue = view.findViewById<TextView>(R.id.tvDensityValue)
+        val sbViscosity = view.findViewById<SeekBar>(R.id.sbViscosity)
+        val tvViscosityValue = view.findViewById<TextView>(R.id.tvViscosityValue)
         val sbDtScale = view.findViewById<SeekBar>(R.id.sbDtScale)
         val tvDtValue = view.findViewById<TextView>(R.id.tvDtValue)
         val rgShape = view.findViewById<RadioGroup>(R.id.rgShape)
@@ -91,6 +109,7 @@ class MainActivity : AppCompatActivity() {
         val llNacaSelector = view.findViewById<android.view.View>(R.id.llNacaSelector)
         val spNacaProfiles = view.findViewById<android.widget.Spinner>(R.id.spNacaProfiles)
 
+        // --- PROFILE DROPDOWN SETUP ---
         val nacaProfiles = arrayOf(
             "NACA 0012 (Symmetric)",
             "NACA 4412 (High Camber)",
@@ -102,7 +121,7 @@ class MainActivity : AppCompatActivity() {
         adapter.setDropDownViewResource(R.layout.spinner_item)
         spNacaProfiles.adapter = adapter
 
-        // Set initial selection
+        // Logic to detect which profile is currently active in the engine
         val currentProfileIdx = when {
             windTunnelView.nacaM == 0.0f && windTunnelView.nacaT == 0.12f -> 0
             windTunnelView.nacaM == 0.04f && windTunnelView.nacaP == 0.4f -> 1
@@ -113,12 +132,19 @@ class MainActivity : AppCompatActivity() {
         }
         spNacaProfiles.setSelection(currentProfileIdx)
 
-        // Initialize with current values
+        // --- INITIAL STATE LOADING ---
         val currentSpeed = windTunnelView.getAirflowSpeed()
         sbSpeed.progress = (currentSpeed * 4.0f).toInt()
         tvSpeedValue.text = String.format(Locale.US, "%.1f m/s", currentSpeed)
 
-        // Initialize Dt Scale slider (0.5x to 5.0x)
+        val currentDensity = windTunnelView.getDensity()
+        sbDensity.progress = ((currentDensity - 0.5f) * 100.0f).toInt()
+        tvDensityValue.text = String.format(Locale.US, "%.2f kg/m³", currentDensity)
+
+        val currentViscosity = windTunnelView.getViscosity()
+        sbViscosity.progress = (((currentViscosity - 1e-6f) / 9.9e-5f) * 100.0f).toInt()
+        tvViscosityValue.text = String.format(Locale.US, "%.1e m²/s", currentViscosity)
+
         sbDtScale.progress = ((windTunnelView.simulationDtScale - 0.5f) * 10.0f).toInt().coerceIn(0, 45)
         tvDtValue.text = if (windTunnelView.simulationDtScale <= 1.05f) "Precise (%.1fx)".format(windTunnelView.simulationDtScale) 
                          else "Fast (%.1fx)".format(windTunnelView.simulationDtScale)
@@ -129,6 +155,7 @@ class MainActivity : AppCompatActivity() {
         sbAoA.progress = (windTunnelView.airfoilAoA + 20).toInt()
         tvAoAValue.text = String.format(Locale.US, "%.0f°", windTunnelView.airfoilAoA)
         
+        // Match RadioButtons to current engine state
         when (windTunnelView.visualizationMode) {
             NativeLBMEngine.VIZ_VELOCITY -> rgViz.check(R.id.rbVizVelocity)
             NativeLBMEngine.VIZ_PRESSURE -> rgViz.check(R.id.rbVizPressure)
@@ -150,8 +177,6 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // Initialize Tunnel Size selection based on current width
-        // Small=200, Medium=400, Large=600
         val currentSimWidth = windTunnelView.getSimWidth()
         when (currentSimWidth) {
             160 -> rgSize.check(R.id.rbTiny)
@@ -159,6 +184,8 @@ class MainActivity : AppCompatActivity() {
             400 -> rgSize.check(R.id.rbMedium)
             600 -> rgSize.check(R.id.rbLarge)
         }
+
+        // --- MENU INTERACTION LISTENERS ---
 
         swAbsolute.isChecked = windTunnelView.useAbsolutePressure
         swAbsolute.setOnCheckedChangeListener { _, isChecked ->
@@ -189,6 +216,26 @@ class MainActivity : AppCompatActivity() {
                 val velocity = progress / 4.0f
                 windTunnelView.setAirflowSpeed(velocity)
                 tvSpeedValue.text = String.format(Locale.US, "%.1f m/s", velocity)
+            }
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+        })
+
+        sbDensity.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                val density = 0.5f + (progress / 100.0f)
+                windTunnelView.setDensity(density)
+                tvDensityValue.text = String.format(Locale.US, "%.2f kg/m³", density)
+            }
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+        })
+
+        sbViscosity.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                val viscosity = 1e-6f + (progress / 100.0f) * 9.9e-5f
+                windTunnelView.setViscosity(viscosity)
+                tvViscosityValue.text = String.format(Locale.US, "%.1e m²/s", viscosity)
             }
             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
             override fun onStopTrackingTouch(seekBar: SeekBar?) {}
@@ -225,11 +272,11 @@ class MainActivity : AppCompatActivity() {
         spNacaProfiles.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: android.view.View?, position: Int, id: Long) {
                 when (position) {
-                    0 -> { windTunnelView.nacaM = 0.0f; windTunnelView.nacaP = 0.0f; windTunnelView.nacaT = 0.12f } // 0012
-                    1 -> { windTunnelView.nacaM = 0.04f; windTunnelView.nacaP = 0.4f; windTunnelView.nacaT = 0.12f } // 4412
-                    2 -> { windTunnelView.nacaM = 0.02f; windTunnelView.nacaP = 0.4f; windTunnelView.nacaT = 0.12f } // 2412
-                    3 -> { windTunnelView.nacaM = 0.0f; windTunnelView.nacaP = 0.0f; windTunnelView.nacaT = 0.15f } // 0015
-                    4 -> { windTunnelView.nacaM = 0.06f; windTunnelView.nacaP = 0.4f; windTunnelView.nacaT = 0.12f } // 6412
+                    0 -> { windTunnelView.nacaM = 0.0f; windTunnelView.nacaP = 0.0f; windTunnelView.nacaT = 0.12f } 
+                    1 -> { windTunnelView.nacaM = 0.04f; windTunnelView.nacaP = 0.4f; windTunnelView.nacaT = 0.12f }
+                    2 -> { windTunnelView.nacaM = 0.02f; windTunnelView.nacaP = 0.4f; windTunnelView.nacaT = 0.12f } 
+                    3 -> { windTunnelView.nacaM = 0.0f; windTunnelView.nacaP = 0.0f; windTunnelView.nacaT = 0.15f }
+                    4 -> { windTunnelView.nacaM = 0.06f; windTunnelView.nacaP = 0.4f; windTunnelView.nacaT = 0.12f }
                 }
             }
             override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {}
@@ -274,9 +321,8 @@ class MainActivity : AppCompatActivity() {
             windTunnelView.showGridlines = isChecked
         }
 
-        // Initialize Core slider
         val maxCores = windTunnelView.getMaxAvailableCores()
-        sbCores.max = maxCores - 1 // 0-indexed internally, but we'll offset it by 1
+        sbCores.max = maxCores - 1 
         sbCores.progress = windTunnelView.coreCount - 1
         tvCoreValue.text = windTunnelView.coreCount.toString()
 
@@ -290,7 +336,7 @@ class MainActivity : AppCompatActivity() {
             override fun onStopTrackingTouch(seekBar: SeekBar?) {}
         })
 
-        // Ensure the bottom sheet is fully expanded so the internal scroll view works predictably
+        // Expand BottomSheet to full height automatically
         dialog.setOnShowListener {
             val bottomSheet = dialog.findViewById<android.view.View>(com.google.android.material.R.id.design_bottom_sheet)
             bottomSheet?.let {
@@ -303,6 +349,10 @@ class MainActivity : AppCompatActivity() {
         dialog.show()
     }
 
+    /**
+     * Background data sampler that periodically pulls telemetry from the engine
+     * and pushes it to the ForceGraphView for rendering.
+     */
     private fun updateGraphLoop(
         windTunnelView: WindTunnelView,
         forceGraphView: ForceGraphView,
@@ -312,7 +362,7 @@ class MainActivity : AppCompatActivity() {
             forceGraphView.updateData(windTunnelView.getForceHistory())
             container.postDelayed({
                 updateGraphLoop(windTunnelView, forceGraphView, container)
-            }, 100) // Update every 100ms
+            }, 100) // Update every 10 frames (100ms)
         }
     }
 }

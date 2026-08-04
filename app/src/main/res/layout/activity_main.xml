@@ -22,7 +22,7 @@
             android:layout_height="36dp"
             android:layout_marginEnd="6dp"
             android:padding="0dp"
-            android:text="Graph"
+            android:text="@string/btn_graph"
             android:textSize="12sp" />
 
         <Button
@@ -32,7 +32,7 @@
             android:layout_height="36dp"
             android:layout_marginEnd="6dp"
             android:padding="0dp"
-            android:text="Settings"
+            android:text="@string/btn_settings"
             android:textSize="12sp" />
 
         <Button
@@ -41,7 +41,7 @@
             android:layout_width="wrap_content"
             android:layout_height="36dp"
             android:padding="0dp"
-            android:text="Reset"
+            android:text="@string/btn_reset"
             android:textSize="12sp" />
     </LinearLayout>
 
@@ -71,7 +71,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Plot Mode"
+                android:text="@string/label_plot_mode"
                 android:textColor="@android:color/white"
                 android:textSize="12sp"
                 android:textStyle="bold" />
@@ -87,7 +87,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="32dp"
                     android:checked="true"
-                    android:text="Force (N)"
+                    android:text="@string/rb_mode_force"
                     android:textColor="@android:color/white"
                     android:textSize="10sp" />
 
@@ -95,7 +95,7 @@
                     android:id="@+id/rbModeCoef"
                     android:layout_width="wrap_content"
                     android:layout_height="32dp"
-                    android:text="Coefficients"
+                    android:text="@string/rb_mode_coef"
                     android:textColor="@android:color/white"
                     android:textSize="10sp" />
             </RadioGroup>
@@ -109,7 +109,7 @@
             android:layout_gravity="top|end"
             android:layout_margin="16dp"
             android:padding="0dp"
-            android:text="Close"
+            android:text="@string/btn_close"
             android:textSize="12sp" />
     </FrameLayout>
 

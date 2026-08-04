@@ -21,7 +21,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Tunnel Size"
+            android:text="@string/header_tunnel_size"
             android:textColor="@android:color/white"
             android:textSize="18sp"
             android:textStyle="bold" />
@@ -36,14 +36,14 @@
                 android:id="@+id/rbTiny"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Tiny (160x80 - Performance)"
+                android:text="@string/rb_tiny"
                 android:textColor="@android:color/white" />
 
             <RadioButton
                 android:id="@+id/rbSmall"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Small (0.5m x 0.25m)"
+                android:text="@string/rb_small"
                 android:textColor="@android:color/white" />
 
             <RadioButton
@@ -51,14 +51,14 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:checked="true"
-                android:text="Medium (1.0m x 0.5m)"
+                android:text="@string/rb_medium"
                 android:textColor="@android:color/white" />
 
             <RadioButton
                 android:id="@+id/rbLarge"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Large (1.5m x 0.75m)"
+                android:text="@string/rb_large"
                 android:textColor="@android:color/white" />
         </RadioGroup>
 
@@ -75,7 +75,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="Airflow Speed"
+                android:text="@string/label_airflow_speed"
                 android:textColor="@android:color/white" />
 
             <TextView
@@ -106,7 +106,69 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="Physics Precision (Time Step)"
+                android:text="@string/label_fluid_density"
+                android:textColor="@android:color/white" />
+
+            <TextView
+                android:id="@+id/tvDensityValue"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="1.22 kg/m³"
+                android:textColor="@android:color/white" />
+        </LinearLayout>
+
+        <SeekBar
+            android:id="@+id/sbDensity"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:max="200"
+            android:progress="122" />
+
+        <Space
+            android:layout_width="match_parent"
+            android:layout_height="16dp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/label_fluid_viscosity"
+                android:textColor="@android:color/white" />
+
+            <TextView
+                android:id="@+id/tvViscosityValue"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="1.5e-5 m²/s"
+                android:textColor="@android:color/white" />
+        </LinearLayout>
+
+        <SeekBar
+            android:id="@+id/sbViscosity"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:max="100"
+            android:progress="15" />
+
+        <Space
+            android:layout_width="match_parent"
+            android:layout_height="16dp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/label_physics_precision"
                 android:textColor="@android:color/white"
                 android:textStyle="bold" />
 
@@ -132,7 +194,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Brush Shape"
+            android:text="@string/header_brush_shape"
             android:textColor="@android:color/white"
             android:textSize="18sp"
             android:textStyle="bold" />
@@ -148,21 +210,21 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:checked="true"
-                android:text="Circle Brush"
+                android:text="@string/rb_circle"
                 android:textColor="@android:color/white" />
 
             <RadioButton
                 android:id="@+id/rbSquare"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Square Brush"
+                android:text="@string/rb_square"
                 android:textColor="@android:color/white" />
 
             <RadioButton
                 android:id="@+id/rbNaca"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Wing / NACA Airfoil"
+                android:text="@string/rb_naca"
                 android:textColor="@android:color/white" />
         </RadioGroup>
 
@@ -177,7 +239,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Select Profile"
+                android:text="@string/label_select_profile"
                 android:textColor="#A0FFFFFF"
                 android:textSize="12sp" />
 
@@ -202,7 +264,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="Angle of Attack (Wings)"
+                android:text="@string/label_aoa"
                 android:textColor="@android:color/white" />
 
             <TextView
@@ -233,7 +295,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="Brush Size / Chord"
+                android:text="@string/label_brush_size"
                 android:textColor="@android:color/white" />
 
             <TextView
@@ -258,7 +320,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Visualization Map"
+            android:text="@string/header_visualization"
             android:textColor="@android:color/white"
             android:textSize="18sp"
             android:textStyle="bold" />
@@ -274,21 +336,21 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:checked="true"
-                android:text="Velocity"
+                android:text="@string/rb_viz_velocity"
                 android:textColor="@android:color/white" />
 
             <RadioButton
                 android:id="@+id/rbVizPressure"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Static Pressure"
+                android:text="@string/rb_viz_pressure"
                 android:textColor="@android:color/white" />
 
             <RadioButton
                 android:id="@+id/rbVizTotal"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Total Pressure"
+                android:text="@string/rb_viz_total"
                 android:textColor="@android:color/white" />
         </RadioGroup>
 
@@ -300,7 +362,7 @@
             android:id="@+id/swAbsolute"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Absolute Pressure"
+            android:text="@string/sw_absolute_pressure"
             android:textColor="@android:color/white" />
 
         <Space
@@ -310,7 +372,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Boundary Conditions"
+            android:text="@string/header_boundaries"
             android:textColor="@android:color/white"
             android:textSize="18sp"
             android:textStyle="bold" />
@@ -326,21 +388,21 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:checked="true"
-                android:text="Periodic"
+                android:text="@string/rb_bnd_periodic"
                 android:textColor="@android:color/white" />
 
             <RadioButton
                 android:id="@+id/rbBndNoSlip"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Solid Walls"
+                android:text="@string/rb_bnd_no_slip"
                 android:textColor="@android:color/white" />
 
             <RadioButton
                 android:id="@+id/rbBndFreeSlip"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Symmetry/Smooth"
+                android:text="@string/rb_bnd_free_slip"
                 android:textColor="@android:color/white" />
         </RadioGroup>
 
@@ -353,14 +415,14 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:checked="true"
-            android:text="Show Detailed Stats"
+            android:text="@string/sw_telemetry"
             android:textColor="@android:color/white" />
 
         <androidx.appcompat.widget.SwitchCompat
             android:id="@+id/swGridlines"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Show Gridlines"
+            android:text="@string/sw_gridlines"
             android:textColor="@android:color/white" />
 
         <Space
@@ -376,7 +438,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="Processing Cores"
+                android:text="@string/label_processing_cores"
                 android:textColor="@android:color/white"
                 android:textStyle="bold" />
 
@@ -406,7 +468,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Educational Disclaimer:\nThis app is to be used as an educational tool only and not be relied upon for any design calculations. Please allow the flow to stabilise before reading any results, turbulence can cause significant fluctuations. Uses Lattice Boltzmann with Bouzidi–Firdaouss–Lallemand (BFL) scheme for boundary collisions"
+            android:text="@string/disclaimer_text"
             android:textColor="#A0FFFFFF"
             android:textSize="12sp"
             android:textStyle="italic"

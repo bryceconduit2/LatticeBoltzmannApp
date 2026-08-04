@@ -1,3 +1,51 @@
 <resources>
     <string name="app_name">Fluid Sandbox</string>
+
+    <!-- Main Screen -->
+    <string name="btn_graph">Graph</string>
+    <string name="btn_settings">Settings</string>
+    <string name="btn_reset">Reset</string>
+    <string name="btn_close">Close</string>
+    <string name="label_plot_mode">Plot Mode</string>
+    <string name="rb_mode_force">Force (N)</string>
+    <string name="rb_mode_coef">Coefficients</string>
+
+    <!-- Settings Menu -->
+    <string name="header_tunnel_size">Tunnel Size</string>
+    <string name="rb_tiny">Tiny (160x80 - Performance)</string>
+    <string name="rb_small">Small (0.5m x 0.25m)</string>
+    <string name="rb_medium">Medium (1.0m x 0.5m)</string>
+    <string name="rb_large">Large (1.5m x 0.75m)</string>
+
+    <string name="label_airflow_speed">Airflow Speed</string>
+    <string name="label_fluid_density">Fluid Density</string>
+    <string name="label_fluid_viscosity">Fluid Viscosity</string>
+    <string name="label_physics_precision">Physics Precision (Time Step)</string>
+
+    <string name="header_brush_shape">Brush Shape</string>
+    <string name="rb_circle">Circle Brush</string>
+    <string name="rb_square">Square Brush</string>
+    <string name="rb_naca">Wing / NACA Airfoil</string>
+    <string name="label_select_profile">Select Profile</string>
+
+    <string name="label_aoa">Angle of Attack (Wings)</string>
+    <string name="label_brush_size">Brush Size / Chord</string>
+
+    <string name="header_visualization">Visualization Map</string>
+    <string name="rb_viz_velocity">Velocity</string>
+    <string name="rb_viz_pressure">Static Pressure</string>
+    <string name="rb_viz_total">Total Pressure</string>
+    <string name="sw_absolute_pressure">Absolute Pressure</string>
+
+    <string name="header_boundaries">Boundary Conditions</string>
+    <string name="rb_bnd_periodic">Periodic</string>
+    <string name="rb_bnd_no_slip">Solid Walls</string>
+    <string name="rb_bnd_free_slip">Symmetry/Smooth</string>
+
+    <string name="sw_telemetry">Show Detailed Stats</string>
+    <string name="sw_gridlines">Show Gridlines</string>
+
+    <string name="label_processing_cores">Processing Cores</string>
+
+    <string name="disclaimer_text">Educational Disclaimer:\nThis app is to be used as an educational tool only and not be relied upon for any design calculations. Please allow the flow to stabilise before reading any results, turbulence can cause significant fluctuations. Uses Lattice Boltzmann with Bouzidi–Firdaouss–Lallemand (BFL) scheme for boundary collisions</string>
 </resources>

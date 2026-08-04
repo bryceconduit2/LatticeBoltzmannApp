@@ -2,20 +2,31 @@ package com.bc.fluidsandbox
 
 import android.graphics.Bitmap
 
+/**
+ * High-performance JNI Bridge for the C++ Lattice Boltzmann Engine.
+ * 
+ * This class serves as the exclusive communication layer between the Android UI 
+ * and the low-level physics kernel. It manages the lifecycle of the native engine
+ * pointer and exposes scientific parameters to the Kotlin environment.
+ */
 class NativeLBMEngine(val width: Int, val height: Int) {
+    // Memory address of the C++ LBMEngine object
     private var enginePtr: Long = 0
 
     companion object {
+        // Visualization constants (must match enum in lbm_engine.cpp)
         const val VIZ_VELOCITY = 0
         const val VIZ_PRESSURE = 1
         const val VIZ_TOTAL_PRESSURE = 2
 
+        // Boundary condition constants
         const val BND_PERIODIC = 0
         const val BND_NO_SLIP = 1
         const val BND_FREE_SLIP = 2
     }
 
     init {
+        // Load the OpenMP parallel processing library first
         android.util.Log.d("NativeLBMEngine", "Loading libomp.so...")
         try {
             System.loadLibrary("omp")
@@ -24,6 +35,7 @@ class NativeLBMEngine(val width: Int, val height: Int) {
             android.util.Log.e("NativeLBMEngine", "Failed to load libomp.so: ${e.message}")
         }
 
+        // Load the core physics library (Fluid Sandbox Engine)
         android.util.Log.d("NativeLBMEngine", "Loading libfluidsandbox.so...")
         try {
             System.loadLibrary("fluidsandbox")
@@ -32,71 +44,108 @@ class NativeLBMEngine(val width: Int, val height: Int) {
             android.util.Log.e("NativeLBMEngine", "Failed to load libfluidsandbox.so: ${e.message}")
             throw e
         }
+        
+        // Initialize the native engine and store the pointer
         enginePtr = initEngine(width, height)
     }
 
+    /**
+     * Executes physics steps and renders the result directly into a Bitmap.
+     */
     fun stepAndRender(bitmap: Bitmap, steps: Int) {
         stepAndRenderNative(enginePtr, bitmap, steps)
     }
 
+    /**
+     * Executes physics steps without rendering (used for high-speed background tests).
+     */
     fun step(steps: Int) {
         if (enginePtr != 0L) {
             stepNative(enginePtr, steps)
         }
     }
 
+    /**
+     * Scientific drawing: Adds a circular obstacle to the grid.
+     */
     fun addObstacle(cx: Int, cy: Int, radius: Int) {
         addObstacleNative(enginePtr, cx, cy, radius)
     }
 
+    /**
+     * Scientific drawing: Adds a rectangular obstacle to the grid.
+     */
     fun addBoxObstacle(cx: Int, cy: Int, size: Int) {
         if (enginePtr != 0L) {
             addBoxObstacleNative(enginePtr, cx, cy, size)
         }
     }
 
+    /**
+     * Scientific drawing: Generates a NACA 4-digit airfoil using parametric equations.
+     */
     fun addNacaAirfoil(cx: Int, cy: Int, chord: Int, m: Float, p: Float, t: Float, angle: Float) {
         if (enginePtr != 0L) {
             addNacaAirfoilNative(enginePtr, cx, cy, chord, m, p, t, angle)
         }
     }
 
+    /**
+     * Cleanup: Ensures the C++ memory is freed when the Kotlin object is garbage collected.
+     */
     protected fun finalize() {
         if (enginePtr != 0L) {
             destroyEngine(enginePtr)
             enginePtr = 0L
         }
     }
-    // 1. Add the public method for WindTunnelView to call
+
+    /**
+     * Resets the entire simulation to a uniform initial flow state.
+     */
     fun resetSimulation() {
         if (enginePtr != 0L) {
             resetSimulationNative(enginePtr)
         }
     }
 
+    /**
+     * Updates the inlet (wind) velocity in m/s.
+     */
     fun setInletVelocity(velocity: Float) {
         if (enginePtr != 0L) {
             setInletVelocityNative(enginePtr, velocity)
         }
     }
 
+    /**
+     * Updates the fluid density (kg/m^3).
+     */
     fun setDensity(density: Float) {
         if (enginePtr != 0L) {
             setDensityNative(enginePtr, density)
         }
     }
 
+    /**
+     * Updates the kinematic viscosity (m^2/s).
+     */
     fun setViscosity(viscosity: Float) {
         if (enginePtr != 0L) {
             setViscosityNative(enginePtr, viscosity)
         }
     }
 
+    /**
+     * Sets the simulation time step (dt) for math precision control.
+     */
     fun setDeltaTime(dt: Float) {
         if (enginePtr != 0L) {
             setDeltaTimeNative(enginePtr, dt)
         }
     }
+
+    // --- Data Retrieval Methods for Telemetry & Graphs ---
 
     fun getInletVelocity(): Float {
         return if (enginePtr != 0L) getInletVelocityNative(enginePtr) else 0.0f
@@ -173,6 +222,8 @@ class NativeLBMEngine(val width: Int, val height: Int) {
             setNumThreadsNative(enginePtr, n)
         }
     }
+
+    // --- Native JNI Method Declarations ---
 
     private external fun initEngine(width: Int, height: Int): Long
     private external fun stepNative(ptr: Long, steps: Int)

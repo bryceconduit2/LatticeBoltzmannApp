@@ -9,23 +9,33 @@ import android.view.SurfaceView
 import java.util.Locale
 import kotlin.math.hypot
 
+/**
+ * The core Interactive UI component of the Fluid Sandbox.
+ * 
+ * This class manages a persistent background thread that runs the physics engine, 
+ * handles complex touch interactions for drawing shapes, and renders the fluid
+ * velocity map directly to the screen via a SurfaceView.
+ */
 class WindTunnelView @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null,
 ) : SurfaceView(context, attrs), SurfaceHolder.Callback, Runnable {
+    
+    // Shape definitions for drawing
     enum class BrushShape { CIRCLE, SQUARE, NACA }
     private data class ReinitParams(val w: Int, val h: Int)
     
-    // High resolution supported natively by C++ OpenMP
+    // Grid dimensions (Default 400x200 = 80,000 fluid cells)
     private var simWidth = 400
     private var simHeight = 200
     private var engine = NativeLBMEngine(simWidth, simHeight)
     @Volatile private var pendingReinit: ReinitParams? = null
 
+    // Multi-threading state
     private var thread: Thread? = null
     @Volatile private var running = false
 
-    // --- NEW: Variables to track touch state across threads ---
+    // --- Touch Interaction State ---
     @Volatile private var isHolding = false
     @Volatile private var touchSimX = 0
     @Volatile private var touchSimY = 0
@@ -34,8 +44,9 @@ class WindTunnelView @JvmOverloads constructor(
     private var currentRadius = 8
     private var persistentObjectRadius = 8
     private var hasActiveObject = false
-    private val maxRadius = 60 // Stop growing so it doesn't block the whole tunnel
+    private val maxRadius = 60 // Max growth limit to prevent blocking the entire tunnel
     
+    // --- Current Physics Settings ---
     var brushShape = BrushShape.CIRCLE
     var nacaM = 0.0f
     var nacaP = 0.0f
@@ -48,39 +59,43 @@ class WindTunnelView @JvmOverloads constructor(
     var visualizationMode = NativeLBMEngine.VIZ_VELOCITY
     var boundaryMode = NativeLBMEngine.BND_PERIODIC
     var useAbsolutePressure = false
-    var coreCount = 4 // Default to a safe 4 cores
-    var simulationDtScale = 1.0f // 1.0 = Default precision, > 1.0 = Faster but less precise
+    var coreCount = 4
+    var simulationDtScale = 1.0f
 
-    // Telemetry
+    // Telemetry accumulators
     private var lastTime = System.nanoTime()
     private var fps = 0.0
     private var sps = 0.0
     private var stepsPerFrame = 12
 
+    // Rendering assets
     private var bitmap = Bitmap.createBitmap(simWidth, simHeight, Bitmap.Config.ARGB_8888)
-    private val paint = Paint().apply { isFilterBitmap = false } // Keep pixels sharp
+    private val paint = Paint().apply { isFilterBitmap = false } // Keep simulation pixels crisp
     
-    // Parameter Persistence
+    // Physical state persistence
     private var currentPhysVelocity = 30.0f
     private var currentPhysDensity = 1.225f
     private var currentPhysViscosity = 1.5e-5f
     
+    // Data stream for the real-time graph
     private val forceHistory = mutableListOf<ForceGraphView.ForcePoint>()
     private val maxHistorySize = 500
 
+    // Scaling helpers
     private fun dpToPx(dp: Float): Float = dp * resources.displayMetrics.density
     private fun spToPx(sp: Float): Float = sp * resources.displayMetrics.scaledDensity
 
+    // --- HUD & Overlay Paints ---
     private val textPaint = Paint().apply {
         color = Color.WHITE
-        textSize = spToPx(18f)
+        textSize = spToPx(14f)
         isAntiAlias = true
         setShadowLayer(3f, 1f, 1f, Color.BLACK)
     }
 
     private val gridPaintOverlay = Paint().apply {
         color = Color.BLACK
-        alpha = 80 // Increased slightly for better contrast
+        alpha = 80
         strokeWidth = dpToPx(1f)
         style = Paint.Style.STROKE
     }
@@ -105,6 +120,7 @@ class WindTunnelView @JvmOverloads constructor(
         setShadowLayer(2f, 1f, 1f, Color.BLACK)
     }
 
+    // Gradient colors for the velocity scale bar
     private val scaleColors = intArrayOf(
         Color.BLUE, Color.CYAN, Color.GREEN, Color.YELLOW, Color.RED
     )
@@ -116,6 +132,12 @@ class WindTunnelView @JvmOverloads constructor(
         holder.addCallback(this)
     }
 
+    /**
+     * Handles complex multi-touch: 
+     * - Single tap adds an object.
+     * - Long press grows the object size.
+     * - Dragging acts as a brush.
+     */
     override fun onTouchEvent(event: MotionEvent): Boolean {
         val scaleX = width.toFloat() / simWidth
         val scaleY = height.toFloat() / simHeight
@@ -124,7 +146,7 @@ class WindTunnelView @JvmOverloads constructor(
             MotionEvent.ACTION_DOWN -> {
                 performClick()
                 isHolding = true
-                currentRadius = baseBrushSize // Reset to starting size on a new tap
+                currentRadius = baseBrushSize 
                 touchSimX = (event.x / scaleX).toInt()
                 touchSimY = (event.y / scaleY).toInt()
                 lastTouchSimX = touchSimX
@@ -132,13 +154,12 @@ class WindTunnelView @JvmOverloads constructor(
                 return true
             }
             MotionEvent.ACTION_MOVE -> {
-                // Update coordinates if they drag their finger while holding
                 touchSimX = (event.x / scaleX).toInt()
                 touchSimY = (event.y / scaleY).toInt()
                 return true
             }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                isHolding = false // Stop growing when finger is lifted
+                isHolding = false 
                 return true
             }
         }
@@ -150,38 +171,41 @@ class WindTunnelView @JvmOverloads constructor(
         return true
     }
 
+    /**
+     * MAIN PHYSICS THREAD LOOP.
+     * Runs continuously at the maximum possible speed allowed by the CPU.
+     */
     override fun run() {
         while (running) {
-            // Check for thread-safe re-initialization
+            // --- THREAD SAFE RE-INITIALIZATION ---
             pendingReinit?.let { params ->
                 simWidth = params.w
                 simHeight = params.h
                 bitmap = Bitmap.createBitmap(simWidth, simHeight, Bitmap.Config.ARGB_8888)
                 engine = NativeLBMEngine(simWidth, simHeight)
                 
-                // Re-apply persisted settings
+                // Re-apply settings to the new engine instance
+                // DeltaTime must be set BEFORE Velocity for correct conversion
+                engine.setDeltaTime(0.000005f * simulationDtScale)
                 engine.setInletVelocity(currentPhysVelocity)
                 engine.setDensity(currentPhysDensity)
                 engine.setViscosity(currentPhysViscosity)
                 engine.setVisualizationMode(visualizationMode)
                 engine.setBoundaryMode(boundaryMode)
                 engine.setNumThreads(coreCount)
-                engine.setDeltaTime(0.000005f * simulationDtScale)
                 
                 pendingReinit = null
             }
 
+            // --- DRAWING LOGIC ---
             if (isHolding) {
                 val dx = (touchSimX - lastTouchSimX).toFloat()
                 val dy = (touchSimY - lastTouchSimY).toFloat()
                 val dist = hypot(dx, dy)
 
                 if (dist > 0.5f) {
-                    // Moved significantly: Act as a brush. 
-                    // Reset to base size immediately for uniform lines.
+                    // INTERPOLATED BRUSH: Ensures no gaps if the user moves their finger quickly
                     currentRadius = baseBrushSize
-                    
-                    // High-density interpolation to ensure no gaps even at high speed
                     val stepSize = (baseBrushSize / 4.0).coerceAtLeast(1.0)
                     val steps = Math.ceil(dist / stepSize).toInt().coerceAtLeast(1)
                     
@@ -192,9 +216,9 @@ class WindTunnelView @JvmOverloads constructor(
                         addObstacleToEngine(px, py, currentRadius)
                     }
                 } else {
-                    // Stationary: Grow the current point for large obstacles
+                    // STATIONARY GROWTH: Slowly grows the object if the user holds their finger still
                     if (currentRadius < maxRadius) {
-                        currentRadius += 1 // Slower growth for better precision
+                        currentRadius += 1 
                         if (currentRadius > maxRadius) currentRadius = maxRadius
                     }
                     addObstacleToEngine(touchSimX, touchSimY, currentRadius)
@@ -205,19 +229,20 @@ class WindTunnelView @JvmOverloads constructor(
                 lastTouchSimY = touchSimY
             }
 
+            // --- ENGINE EXECUTION ---
             val now = System.nanoTime()
             val dtNano = now - lastTime
             if (dtNano > 0) {
                 val currentFps = 1_000_000_000.0 / dtNano
-                fps = fps * 0.9 + currentFps * 0.1 // Smooth FPS
+                fps = fps * 0.9 + currentFps * 0.1 // EMA Filtered FPS
                 sps = fps * stepsPerFrame
             }
             lastTime = now
 
-            // Execute physics steps natively before rendering
+            // TRIGGER THE C++ PHYSICS KERNEL
             engine.stepAndRender(bitmap, stepsPerFrame)
             
-            // Collect data for the graph (using instant values to see vortex oscillations)
+            // STREAM TELEMETRY TO GRAPH
             val elapsedSec = engine.getTotalSteps() * 0.000005f
             val dragN = engine.getDragForce()
             val liftN = engine.getLiftForce()
@@ -231,15 +256,17 @@ class WindTunnelView @JvmOverloads constructor(
                 }
             }
 
+            // --- UI RENDERING ---
             val canvas = holder.lockCanvas()
             if (canvas != null) {
+                // 1. Draw the actual physics fluid map
                 canvas.drawBitmap(bitmap, null, Rect(0, 0, width, height), paint)
                 
                 if (showGridlines) {
                     drawGrid(canvas)
                 }
                 
-                // Draw a visual preview of the growing shape
+                // 2. Draw the visual touch preview (Outline)
                 if (isHolding) {
                     val scaleX = width.toFloat() / simWidth
                     val scaleY = height.toFloat() / simHeight
@@ -251,7 +278,6 @@ class WindTunnelView @JvmOverloads constructor(
                         BrushShape.CIRCLE -> canvas.drawCircle(cx, cy, r, previewPaint)
                         BrushShape.SQUARE -> canvas.drawRect(cx - r, cy - r, cx + r, cy + r, previewPaint)
                         else -> {
-                            // Draw a simple line to represent the airfoil chord for preview
                             val angleRad = Math.toRadians(airfoilAoA.toDouble())
                             val endX = cx + (currentRadius * scaleX * 5.0f * Math.cos(angleRad)).toFloat()
                             val endY = cy + (currentRadius * scaleX * 5.0f * Math.sin(angleRad)).toFloat()
@@ -260,31 +286,30 @@ class WindTunnelView @JvmOverloads constructor(
                     }
                 }
 
+                // 3. Draw HUD (Velocity, Drag, Lift, Reynolds)
                 val currentVel = engine.getInletVelocity()
-                val dragN = engine.getDragForce()
+                val dragN_hud = engine.getDragForce()
                 val dragCd = engine.getDragCoefficient()
-                val liftN = engine.getLiftForce()
+                val liftN_hud = engine.getLiftForce()
                 val liftCl = engine.getLiftCoefficient()
                 val elapsedSeconds = engine.getTotalSteps() * 0.000005f
                 
                 val telemetryPadding = dpToPx(24f)
-                val telemetrySpacing = dpToPx(28f)
+                val telemetrySpacing = dpToPx(22f)
                 
                 canvas.drawText(String.format(Locale.US, "Velocity: %.1f m/s | Time: %.2fs", currentVel, elapsedSeconds), telemetryPadding, telemetryPadding * 1.5f, textPaint)
-                canvas.drawText(String.format(Locale.US, "Drag: %.1f N | Cd: %.2f", dragN, dragCd), telemetryPadding, telemetryPadding * 1.5f + telemetrySpacing, textPaint)
-                canvas.drawText(String.format(Locale.US, "Lift: %.1f N | Cl: %.2f", liftN, liftCl), telemetryPadding, telemetryPadding * 1.5f + telemetrySpacing * 2f, textPaint)
+                canvas.drawText(String.format(Locale.US, "Drag: %.1f N | Cd: %.2f", dragN_hud, dragCd), telemetryPadding, telemetryPadding * 1.5f + telemetrySpacing, textPaint)
+                canvas.drawText(String.format(Locale.US, "Lift: %.1f N | Cl: %.2f", liftN_hud, liftCl), telemetryPadding, telemetryPadding * 1.5f + telemetrySpacing * 2f, textPaint)
                 
-                // Reynolds Number Calculation (Holistic)
+                // ADVANCED REYNOLDS CALCULATION (Dynamic Span)
                 val dx = engine.getDX()
                 val viscosity = engine.getViscosity()
-                
-                // Use the actual horizontal span (chord) of the entire object set
                 val L_obj = engine.getHorizontalSpan()
                 val reObject = if (viscosity > 0 && hasActiveObject) (currentVel * L_obj) / viscosity else 0f
-                
                 val reValueStr = if (hasActiveObject) String.format(Locale.US, "%,.0f", reObject) else "--"
-                canvas.drawText(String.format(Locale.US, "Reynolds No: %s", reValueStr), telemetryPadding, telemetryPadding * 1.5f + telemetrySpacing * 3f, textPaint)
+                canvas.drawText(String.format(Locale.US, "~Reynolds No: %s", reValueStr), telemetryPadding, telemetryPadding * 1.5f + telemetrySpacing * 3f, textPaint)
 
+                // 4. Draw Detailed Performance HUD
                 if (showDetailedTelemetry) {
                     val physW = simWidth * dx
                     val physH = simHeight * dx
@@ -295,6 +320,7 @@ class WindTunnelView @JvmOverloads constructor(
                     canvas.drawText(String.format(Locale.US, "Active Cores: %d", activeCores), telemetryPadding, telemetryPadding * 1.5f + telemetrySpacing * 6.5f, textPaint)
                 }
 
+                // 5. Draw Velocity Scale Bar
                 drawScaleBar(canvas)
                 
                 holder.unlockCanvasAndPost(canvas)
@@ -302,6 +328,9 @@ class WindTunnelView @JvmOverloads constructor(
         }
     }
 
+    /**
+     * Translates UI coordinates to scientific grid obstacles.
+     */
     private fun addObstacleToEngine(x: Int, y: Int, radius: Int) {
         hasActiveObject = true
         when (brushShape) {
@@ -311,17 +340,19 @@ class WindTunnelView @JvmOverloads constructor(
         }
     }
 
+    /**
+     * Renders a professional color legend representing wind speed or pressure.
+     */
     private fun drawScaleBar(canvas: Canvas) {
         val barWidth = dpToPx(240f)
         val barHeight = dpToPx(16f)
-        val margin = dpToPx(20f)
+        val margin = dpToPx(28f) // Increased margin to prevent text cutoff
         
         val left = width - barWidth - margin
         val right = width - margin
         val bottom = height - margin - dpToPx(8f) 
         val top = bottom - barHeight
 
-        // Create gradient if not already set or if width changed
         if (scalePaint.shader == null) {
             scalePaint.shader = LinearGradient(
                 left, 0f, right, 0f,
@@ -329,36 +360,39 @@ class WindTunnelView @JvmOverloads constructor(
             )
         }
 
-        // Draw the color bar
         canvas.drawRect(left, top, right, bottom, scalePaint)
-        
-        // Draw a thin border
         previewPaint.strokeWidth = dpToPx(1f)
         canvas.drawRect(left, top, right, bottom, previewPaint)
 
-        // Draw Labels
         val labelMargin = dpToPx(6f)
         if (visualizationMode == NativeLBMEngine.VIZ_VELOCITY) {
-            // Velocity mode (Standard 0 to Max)
             val maxVelPhys = engine.getInletVelocity() * 1.8f
+            
+            // Left Label
+            scaleTextPaint.textAlign = Paint.Align.LEFT
             canvas.drawText("0.0", left, top - labelMargin, scaleTextPaint)
+            
+            // Right Label
+            scaleTextPaint.textAlign = Paint.Align.RIGHT
             val maxLabel = String.format(Locale.US, "%.1f m/s", maxVelPhys)
             canvas.drawText(maxLabel, right, top - labelMargin, scaleTextPaint)
         } else {
-            // Pressure mode (Relative deviation)
             val rhoPhys = engine.getDensity()
             val uInPhys = engine.getInletVelocity()
             val maxDeltaP = 0.5f * rhoPhys * uInPhys * uInPhys
-            
             val offset = if (useAbsolutePressure) 101325f else 0.0f
             
+            scaleTextPaint.textAlign = Paint.Align.LEFT
             canvas.drawText(String.format(Locale.US, "%.0f Pa", offset - maxDeltaP), left, top - labelMargin, scaleTextPaint)
+            
+            scaleTextPaint.textAlign = Paint.Align.RIGHT
             canvas.drawText(String.format(Locale.US, "%.0f Pa", offset + maxDeltaP), right, top - labelMargin, scaleTextPaint)
         }
         
-        // Unit Label
+        // Center Title
+        scaleTextPaint.textAlign = Paint.Align.CENTER
         val label = when (visualizationMode) {
-            NativeLBMEngine.VIZ_VELOCITY -> "Air Velocity"
+            NativeLBMEngine.VIZ_VELOCITY -> "Air Velocity (m/s)"
             NativeLBMEngine.VIZ_PRESSURE -> if (useAbsolutePressure) "Static Pressure (Absolute)" else "Static Pressure (Gauge)"
             NativeLBMEngine.VIZ_TOTAL_PRESSURE -> if (useAbsolutePressure) "Total Pressure (Absolute)" else "Total Pressure"
             else -> "Fluid Map"
@@ -377,6 +411,9 @@ class WindTunnelView @JvmOverloads constructor(
         running = false
         thread?.join()
     }
+
+    // --- External Controller Methods (Used by MainActivity) ---
+
     fun reset() {
         engine.resetSimulation()
         hasActiveObject = false
@@ -433,6 +470,9 @@ class WindTunnelView @JvmOverloads constructor(
         simulationDtScale = scale
         val baseDt = 0.000005f
         engine.setDeltaTime(baseDt * scale)
+        // Re-apply the physical velocity setting so the engine updates its 
+        // internal lattice speed calculation using the new time step.
+        engine.setInletVelocity(currentPhysVelocity)
     }
 
     fun getActiveCoreCount(): Int = engine.getActiveCores()
@@ -447,24 +487,21 @@ class WindTunnelView @JvmOverloads constructor(
         }
     }
 
+    /**
+     * Renders a 10cm grid overlay based on the dx constant (0.0025m).
+     */
     private fun drawGrid(canvas: Canvas) {
         val scaleX = width.toFloat() / simWidth
         val scaleY = height.toFloat() / simHeight
-        
-        // dx = 0.0025m (2.5mm)
-        // 40 cells = 0.1m (10cm)
         val gridIntervalCells = 40
         val gridStepX = gridIntervalCells * scaleX
         val gridStepY = gridIntervalCells * scaleY
         
-        // Vertical lines
         var x = 0f
         while (x < width) {
             canvas.drawLine(x, 0f, x, height.toFloat(), gridPaintOverlay)
             x += gridStepX
         }
-        
-        // Horizontal lines
         var y = 0f
         while (y < height) {
             canvas.drawLine(0f, y, width.toFloat(), y, gridPaintOverlay)
