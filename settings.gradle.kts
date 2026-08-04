@@ -12,5 +12,5 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
-rootProject.name = "LatticeBoltzmann"
+rootProject.name = "Fluid Sandbox"
 include(":app")

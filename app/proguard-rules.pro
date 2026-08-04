@@ -13,7 +13,7 @@
 #}
 
 # Keep the Native engine class and its members for JNI
--keep class com.BC.latticeboltzmann.NativeLBMEngine {
+-keep class com.bc.fluidsandbox.NativeLBMEngine {
     *;
 }
 

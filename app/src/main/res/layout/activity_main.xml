@@ -3,7 +3,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-    <com.BC.latticeboltzmann.WindTunnelView
+    <com.bc.fluidsandbox.WindTunnelView
         android:id="@+id/windTunnelView"
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
@@ -53,7 +53,7 @@
         android:background="#E0000000"
         android:visibility="gone">
 
-        <com.BC.latticeboltzmann.ForceGraphView
+        <com.bc.fluidsandbox.ForceGraphView
             android:id="@+id/forceGraphView"
             android:layout_width="match_parent"
             android:layout_height="match_parent"

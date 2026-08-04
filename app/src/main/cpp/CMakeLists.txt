@@ -1,13 +1,13 @@
 cmake_minimum_required(VERSION 3.22.1)
-project("latticeboltzmann")
+project("fluidsandbox")
 
 # 1. Properly find and configure OpenMP
 find_package(OpenMP REQUIRED)
 
-add_library(latticeboltzmann SHARED lbm_engine.cpp)
+add_library(fluidsandbox SHARED lbm_engine.cpp)
 
 target_link_libraries(
-        latticeboltzmann
+        fluidsandbox
         PRIVATE
         OpenMP::OpenMP_CXX
         android

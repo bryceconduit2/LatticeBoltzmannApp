@@ -106,54 +106,24 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="Fluid Density"
-                android:textColor="@android:color/white" />
+                android:text="Physics Precision (Time Step)"
+                android:textColor="@android:color/white"
+                android:textStyle="bold" />
 
             <TextView
-                android:id="@+id/tvDensityValue"
+                android:id="@+id/tvDtValue"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="1.22 kg/m³"
+                android:text="Precise (1.0x)"
                 android:textColor="@android:color/white" />
         </LinearLayout>
 
         <SeekBar
-            android:id="@+id/sbDensity"
+            android:id="@+id/sbDtScale"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:max="200"
-            android:progress="122" />
-
-        <Space
-            android:layout_width="match_parent"
-            android:layout_height="16dp" />
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal">
-
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Fluid Viscosity"
-                android:textColor="@android:color/white" />
-
-            <TextView
-                android:id="@+id/tvViscosityValue"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="1.5e-5 m²/s"
-                android:textColor="@android:color/white" />
-        </LinearLayout>
-
-        <SeekBar
-            android:id="@+id/sbViscosity"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:max="100"
-            android:progress="15" />
+            android:max="40"
+            android:progress="0" />
 
         <Space
             android:layout_width="match_parent"
@@ -189,19 +159,35 @@
                 android:textColor="@android:color/white" />
 
             <RadioButton
-                android:id="@+id/rbNaca0012"
+                android:id="@+id/rbNaca"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="NACA 0012 Wing Brush"
-                android:textColor="@android:color/white" />
-
-            <RadioButton
-                android:id="@+id/rbNaca4412"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="NACA 4412 Wing Brush"
+                android:text="Wing / NACA Airfoil"
                 android:textColor="@android:color/white" />
         </RadioGroup>
+
+        <LinearLayout
+            android:id="@+id/llNacaSelector"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingStart="16dp"
+            android:visibility="gone">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Select Profile"
+                android:textColor="#A0FFFFFF"
+                android:textSize="12sp" />
+
+            <Spinner
+                android:id="@+id/spNacaProfiles"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:popupBackground="#202020"
+                android:backgroundTint="@android:color/white" />
+        </LinearLayout>
 
         <Space
             android:layout_width="match_parent"

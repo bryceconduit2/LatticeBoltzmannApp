@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace = "com.BC.latticeboltzmann"
+    namespace = "com.bc.fluidsandbox"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.BC.latticeboltzmann"
+        applicationId = "com.bc.fluidsandbox"
         minSdk = 26
         targetSdk = 35
         versionCode = 1
@@ -32,8 +32,8 @@ android {
     }
     buildTypes {
         getByName("release") {
-            isMinifyEnabled = true
-            isShrinkResources = true
+            isMinifyEnabled = false
+            isShrinkResources = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
 
             // REMOVED debug signing override for production security
@@ -46,7 +46,11 @@ android {
     }
     sourceSets {
         getByName("main") {
+            java.srcDirs("src/main/java")
             jniLibs.srcDirs("src/main/jniLibs")
+        }
+        getByName("androidTest") {
+            java.srcDirs("src/androidTest/java")
         }
     }
 

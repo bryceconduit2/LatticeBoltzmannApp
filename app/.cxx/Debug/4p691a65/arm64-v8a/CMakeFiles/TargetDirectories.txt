@@ -1,3 +1,0 @@
-C:/Users/bryce/AndroidStudioProjects/LatticeBoltzmann/app/.cxx/Debug/4p691a65/arm64-v8a/CMakeFiles/latticeboltzmann.dir
-C:/Users/bryce/AndroidStudioProjects/LatticeBoltzmann/app/.cxx/Debug/4p691a65/arm64-v8a/CMakeFiles/edit_cache.dir
-C:/Users/bryce/AndroidStudioProjects/LatticeBoltzmann/app/.cxx/Debug/4p691a65/arm64-v8a/CMakeFiles/rebuild_cache.dir

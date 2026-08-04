@@ -1,2 +1,2 @@
-# LatticeBoltzmannApp
-first android lattice boltzmann app
+# Fluid Sandbox
+The first Android Lattice Boltzmann application.

@@ -52,7 +52,7 @@ struct LBMEngine {
     const float SmagorinskyConstant = 0.16f;
 
     const float dx = 0.0025f;
-    const float dt = 0.000005f;
+    float dt = 0.000005f;
     float rhoAir = 1.225f;
     float nuAir = 1.5e-5f;
 
@@ -313,13 +313,13 @@ struct LBMEngine {
     }
 };
 
-extern "C" JNIEXPORT jlong JNICALL Java_com_BC_latticeboltzmann_NativeLBMEngine_initEngine(JNIEnv *env, jobject thiz, jint width, jint height) {
+extern "C" JNIEXPORT jlong JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_initEngine(JNIEnv *env, jobject thiz, jint width, jint height) {
     return (jlong)(uintptr_t)new LBMEngine(width, height);
 }
-extern "C" JNIEXPORT void JNICALL Java_com_BC_latticeboltzmann_NativeLBMEngine_destroyEngine(JNIEnv *env, jobject thiz, jlong ptr) {
+extern "C" JNIEXPORT void JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_destroyEngine(JNIEnv *env, jobject thiz, jlong ptr) {
     delete reinterpret_cast<LBMEngine*>(ptr);
 }
-extern "C" JNIEXPORT void JNICALL Java_com_BC_latticeboltzmann_NativeLBMEngine_addObstacleNative(JNIEnv *env, jobject thiz, jlong ptr, jint cx, jint cy, jint radius) {
+extern "C" JNIEXPORT void JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_addObstacleNative(JNIEnv *env, jobject thiz, jlong ptr, jint cx, jint cy, jint radius) {
     auto* e = reinterpret_cast<LBMEngine*>(ptr); int r2 = radius * radius; float R = (float)radius;
     for (int y = std::max(0, cy - radius); y <= std::min(e->height - 1, cy + radius); y++)
         for (int x = std::max(0, cx - radius); x <= std::min(e->width - 1, cx + radius); x++)
@@ -344,7 +344,7 @@ extern "C" JNIEXPORT void JNICALL Java_com_BC_latticeboltzmann_NativeLBMEngine_a
         }
     }
 }
-extern "C" JNIEXPORT void JNICALL Java_com_BC_latticeboltzmann_NativeLBMEngine_addBoxObstacleNative(JNIEnv *env, jobject thiz, jlong ptr, jint cx, jint cy, jint size) {
+extern "C" JNIEXPORT void JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_addBoxObstacleNative(JNIEnv *env, jobject thiz, jlong ptr, jint cx, jint cy, jint size) {
     auto* e = reinterpret_cast<LBMEngine*>(ptr); int h = size / 2;
     for (int y = std::max(0, cy - h); y <= std::min(e->height - 1, cy + h); y++)
         for (int x = std::max(0, cx - h); x <= std::min(e->width - 1, cx + h); x++)
@@ -358,7 +358,7 @@ extern "C" JNIEXPORT void JNICALL Java_com_BC_latticeboltzmann_NativeLBMEngine_a
         }
     }
 }
-extern "C" JNIEXPORT void JNICALL Java_com_BC_latticeboltzmann_NativeLBMEngine_addNacaAirfoilNative(
+extern "C" JNIEXPORT void JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_addNacaAirfoilNative(
         JNIEnv *env, jobject thiz, jlong ptr, jint cx, jint cy, jint chord, jfloat m, jfloat p, jfloat t, jfloat angleDegrees) {
     auto* e = reinterpret_cast<LBMEngine*>(ptr); if (chord <= 0) return;
     float angleRad = -angleDegrees * (M_PI / 180.0f); float cosA = cosf(angleRad); float sinA = sinf(angleRad);
@@ -390,9 +390,10 @@ extern "C" JNIEXPORT void JNICALL Java_com_BC_latticeboltzmann_NativeLBMEngine_a
         }
     }
 }
-extern "C" JNIEXPORT void JNICALL Java_com_BC_latticeboltzmann_NativeLBMEngine_setDensityNative(JNIEnv *env, jobject thiz, jlong ptr, jfloat d) { reinterpret_cast<LBMEngine*>(ptr)->rhoAir = d; }
-extern "C" JNIEXPORT void JNICALL Java_com_BC_latticeboltzmann_NativeLBMEngine_setViscosityNative(JNIEnv *env, jobject thiz, jlong ptr, jfloat v) { reinterpret_cast<LBMEngine*>(ptr)->nuAir = v; }
-extern "C" JNIEXPORT void JNICALL Java_com_BC_latticeboltzmann_NativeLBMEngine_stepNative(JNIEnv *env, jobject thiz, jlong ptr, jint steps) {
+extern "C" JNIEXPORT void JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_setDensityNative(JNIEnv *env, jobject thiz, jlong ptr, jfloat d) { reinterpret_cast<LBMEngine*>(ptr)->rhoAir = d; }
+extern "C" JNIEXPORT void JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_setViscosityNative(JNIEnv *env, jobject thiz, jlong ptr, jfloat v) { reinterpret_cast<LBMEngine*>(ptr)->nuAir = v; }
+extern "C" JNIEXPORT void JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_setDeltaTimeNative(JNIEnv *env, jobject thiz, jlong ptr, jfloat dt) { reinterpret_cast<LBMEngine*>(ptr)->dt = dt; }
+extern "C" JNIEXPORT void JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_stepNative(JNIEnv *env, jobject thiz, jlong ptr, jint steps) {
     auto* e = reinterpret_cast<LBMEngine*>(ptr);
     if (!e) return;
     double dragAcc = 0.0; double liftAcc = 0.0;
@@ -421,7 +422,7 @@ extern "C" JNIEXPORT void JNICALL Java_com_BC_latticeboltzmann_NativeLBMEngine_s
     }
 }
 
-extern "C" JNIEXPORT void JNICALL Java_com_BC_latticeboltzmann_NativeLBMEngine_stepAndRenderNative(JNIEnv *env, jobject thiz, jlong ptr, jobject bitmap, jint steps) {
+extern "C" JNIEXPORT void JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_stepAndRenderNative(JNIEnv *env, jobject thiz, jlong ptr, jobject bitmap, jint steps) {
     auto* e = reinterpret_cast<LBMEngine*>(ptr); double dragAcc = 0.0; double liftAcc = 0.0;
     for (int i = 0; i < steps; i++) { ForceResult res = e->step(); dragAcc += (double)res.drag; liftAcc += (double)res.lift; }
     if (steps > 0) {
@@ -459,7 +460,7 @@ extern "C" JNIEXPORT void JNICALL Java_com_BC_latticeboltzmann_NativeLBMEngine_s
         bool y_edge = (y == 0 || y == h - 1);
         for (int x = 0; x < w; x++) {
             int idx = y * w + x;
-            if (obs[idx]) { sm[idx] = 0; bmp[idx] = 0xFFFFFFFF; continue; }
+            if (obs[idx]) { sm[idx] = 0; bmp[idx] = 0xFF000000; continue; }
 
             float sum = 0;
             int count = 0;
@@ -494,44 +495,52 @@ extern "C" JNIEXPORT void JNICALL Java_com_BC_latticeboltzmann_NativeLBMEngine_s
     }
     AndroidBitmap_unlockPixels(env, bitmap);
 }
-extern "C" JNIEXPORT void JNICALL Java_com_BC_latticeboltzmann_NativeLBMEngine_resetSimulationNative(JNIEnv *env, jobject thiz, jlong ptr) { reinterpret_cast<LBMEngine*>(ptr)->reset(); }
-extern "C" JNIEXPORT void JNICALL Java_com_BC_latticeboltzmann_NativeLBMEngine_setInletVelocityNative(JNIEnv *env, jobject thiz, jlong ptr, jfloat v) {
-    auto* e = reinterpret_cast<LBMEngine*>(ptr); float uL = v * e->dt / e->dx; e->uInletTarget = fmaxf(0.0f, fminf(0.45f, uL));
+extern "C" JNIEXPORT void JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_resetSimulationNative(JNIEnv *env, jobject thiz, jlong ptr) { reinterpret_cast<LBMEngine*>(ptr)->reset(); }
+extern "C" JNIEXPORT void JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_setInletVelocityNative(JNIEnv *env, jobject thiz, jlong ptr, jfloat v) {
+    auto* e = reinterpret_cast<LBMEngine*>(ptr);
+    // Convert physical velocity (m/s) to lattice velocity using current dt
+    float uL = v * e->dt / e->dx;
+    e->uInletTarget = fmaxf(0.0f, fminf(0.45f, uL));
 }
-extern "C" JNIEXPORT jfloat JNICALL Java_com_BC_latticeboltzmann_NativeLBMEngine_getInletVelocityNative(JNIEnv *env, jobject thiz, jlong ptr) { auto* e = reinterpret_cast<LBMEngine*>(ptr); return e->uInlet * e->dx / e->dt; }
-extern "C" JNIEXPORT jfloat JNICALL Java_com_BC_latticeboltzmann_NativeLBMEngine_getDragForceNative(JNIEnv *env, jobject thiz, jlong ptr) { return reinterpret_cast<LBMEngine*>(ptr)->dragForceNewtons; }
-extern "C" JNIEXPORT jfloat JNICALL Java_com_BC_latticeboltzmann_NativeLBMEngine_getDragCoefficientNative(JNIEnv *env, jobject thiz, jlong ptr) {
+
+extern "C" JNIEXPORT jfloat JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_getInletVelocityNative(JNIEnv *env, jobject thiz, jlong ptr) {
+    auto* e = reinterpret_cast<LBMEngine*>(ptr);
+    // Always report physical velocity based on the CURRENT dt in the engine
+    return e->uInlet * e->dx / e->dt;
+}
+extern "C" JNIEXPORT jfloat JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_getDragForceNative(JNIEnv *env, jobject thiz, jlong ptr) { return reinterpret_cast<LBMEngine*>(ptr)->dragForceNewtons; }
+extern "C" JNIEXPORT jfloat JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_getDragCoefficientNative(JNIEnv *env, jobject thiz, jlong ptr) {
     return reinterpret_cast<LBMEngine*>(ptr)->smoothedCd;
 }
-extern "C" JNIEXPORT jfloat JNICALL Java_com_BC_latticeboltzmann_NativeLBMEngine_getInstantDragCoefficientNative(JNIEnv *env, jobject thiz, jlong ptr) {
+extern "C" JNIEXPORT jfloat JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_getInstantDragCoefficientNative(JNIEnv *env, jobject thiz, jlong ptr) {
     return reinterpret_cast<LBMEngine*>(ptr)->dragCoefficient;
 }
-extern "C" JNIEXPORT jfloat JNICALL Java_com_BC_latticeboltzmann_NativeLBMEngine_getLiftForceNative(JNIEnv *env, jobject thiz, jlong ptr) { return reinterpret_cast<LBMEngine*>(ptr)->liftForceNewtons; }
-extern "C" JNIEXPORT jfloat JNICALL Java_com_BC_latticeboltzmann_NativeLBMEngine_getLiftCoefficientNative(JNIEnv *env, jobject thiz, jlong ptr) {
+extern "C" JNIEXPORT jfloat JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_getLiftForceNative(JNIEnv *env, jobject thiz, jlong ptr) { return reinterpret_cast<LBMEngine*>(ptr)->liftForceNewtons; }
+extern "C" JNIEXPORT jfloat JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_getLiftCoefficientNative(JNIEnv *env, jobject thiz, jlong ptr) {
     return reinterpret_cast<LBMEngine*>(ptr)->smoothedCl;
 }
-extern "C" JNIEXPORT jfloat JNICALL Java_com_BC_latticeboltzmann_NativeLBMEngine_getInstantLiftCoefficientNative(JNIEnv *env, jobject thiz, jlong ptr) {
+extern "C" JNIEXPORT jfloat JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_getInstantLiftCoefficientNative(JNIEnv *env, jobject thiz, jlong ptr) {
     return reinterpret_cast<LBMEngine*>(ptr)->liftCoefficient;
 }
-extern "C" JNIEXPORT jlong JNICALL Java_com_BC_latticeboltzmann_NativeLBMEngine_getTotalStepsNative(JNIEnv *env, jobject thiz, jlong ptr) { return (jlong)reinterpret_cast<LBMEngine*>(ptr)->totalSteps; }
-extern "C" JNIEXPORT jfloat JNICALL Java_com_BC_latticeboltzmann_NativeLBMEngine_getDensityNative(JNIEnv *env, jobject thiz, jlong ptr) { return reinterpret_cast<LBMEngine*>(ptr)->rhoAir; }
-extern "C" JNIEXPORT jfloat JNICALL Java_com_BC_latticeboltzmann_NativeLBMEngine_getViscosityNative(JNIEnv *env, jobject thiz, jlong ptr) { return reinterpret_cast<LBMEngine*>(ptr)->nuAir; }
-extern "C" JNIEXPORT jfloat JNICALL Java_com_BC_latticeboltzmann_NativeLBMEngine_getDXNative(JNIEnv *env, jobject thiz, jlong ptr) { return reinterpret_cast<LBMEngine*>(ptr)->dx; }
-extern "C" JNIEXPORT jfloat JNICALL Java_com_BC_latticeboltzmann_NativeLBMEngine_getHorizontalSpanNative(JNIEnv *env, jobject thiz, jlong ptr) { return reinterpret_cast<LBMEngine*>(ptr)->horizontalSpan; }
-extern "C" JNIEXPORT jfloat JNICALL Java_com_BC_latticeboltzmann_NativeLBMEngine_getFrontalAreaNative(JNIEnv *env, jobject thiz, jlong ptr) { return reinterpret_cast<LBMEngine*>(ptr)->frontalArea; }
-extern "C" JNIEXPORT void JNICALL Java_com_BC_latticeboltzmann_NativeLBMEngine_setVisualizationModeNative(JNIEnv *env, jobject thiz, jlong ptr, jint m) { reinterpret_cast<LBMEngine*>(ptr)->vizMode = static_cast<LBMEngine::VisualizationMode>(m); }
-extern "C" JNIEXPORT void JNICALL Java_com_BC_latticeboltzmann_NativeLBMEngine_setBoundaryModeNative(JNIEnv *env, jobject thiz, jlong ptr, jint mode) {
+extern "C" JNIEXPORT jlong JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_getTotalStepsNative(JNIEnv *env, jobject thiz, jlong ptr) { return (jlong)reinterpret_cast<LBMEngine*>(ptr)->totalSteps; }
+extern "C" JNIEXPORT jfloat JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_getDensityNative(JNIEnv *env, jobject thiz, jlong ptr) { return reinterpret_cast<LBMEngine*>(ptr)->rhoAir; }
+extern "C" JNIEXPORT jfloat JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_getViscosityNative(JNIEnv *env, jobject thiz, jlong ptr) { return reinterpret_cast<LBMEngine*>(ptr)->nuAir; }
+extern "C" JNIEXPORT jfloat JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_getDXNative(JNIEnv *env, jobject thiz, jlong ptr) { return reinterpret_cast<LBMEngine*>(ptr)->dx; }
+extern "C" JNIEXPORT jfloat JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_getHorizontalSpanNative(JNIEnv *env, jobject thiz, jlong ptr) { return reinterpret_cast<LBMEngine*>(ptr)->horizontalSpan; }
+extern "C" JNIEXPORT jfloat JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_getFrontalAreaNative(JNIEnv *env, jobject thiz, jlong ptr) { return reinterpret_cast<LBMEngine*>(ptr)->frontalArea; }
+extern "C" JNIEXPORT void JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_setVisualizationModeNative(JNIEnv *env, jobject thiz, jlong ptr, jint m) { reinterpret_cast<LBMEngine*>(ptr)->vizMode = static_cast<LBMEngine::VisualizationMode>(m); }
+extern "C" JNIEXPORT void JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_setBoundaryModeNative(JNIEnv *env, jobject thiz, jlong ptr, jint mode) {
     reinterpret_cast<LBMEngine*>(ptr)->boundaryMode = static_cast<LBMEngine::BoundaryMode>(mode);
 }
 
-extern "C" JNIEXPORT jint JNICALL Java_com_BC_latticeboltzmann_NativeLBMEngine_getMaxCoresNative(JNIEnv *env, jobject thiz) {
+extern "C" JNIEXPORT jint JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_getMaxCoresNative(JNIEnv *env, jobject thiz) {
     return omp_get_num_procs();
 }
 
-extern "C" JNIEXPORT void JNICALL Java_com_BC_latticeboltzmann_NativeLBMEngine_setNumThreadsNative(JNIEnv *env, jobject thiz, jlong ptr, jint n) {
+extern "C" JNIEXPORT void JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_setNumThreadsNative(JNIEnv *env, jobject thiz, jlong ptr, jint n) {
     if (n > 0) reinterpret_cast<LBMEngine*>(ptr)->numThreads = n;
 }
 
-extern "C" JNIEXPORT jint JNICALL Java_com_BC_latticeboltzmann_NativeLBMEngine_getActiveCoresNative(JNIEnv *env, jobject thiz, jlong ptr) {
+extern "C" JNIEXPORT jint JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_getActiveCoresNative(JNIEnv *env, jobject thiz, jlong ptr) {
     return reinterpret_cast<LBMEngine*>(ptr)->activeCores;
 }
