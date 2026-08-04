@@ -16,6 +16,7 @@
     <string name="rb_small">Small (0.5m x 0.25m)</string>
     <string name="rb_medium">Medium (1.0m x 0.5m)</string>
     <string name="rb_large">Large (1.5m x 0.75m)</string>
+    <string name="btn_reset_defaults">Reset to Defaults</string>
 
     <string name="label_airflow_speed">Airflow Speed</string>
     <string name="label_fluid_density">Fluid Density</string>

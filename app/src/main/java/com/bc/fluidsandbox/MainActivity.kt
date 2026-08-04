@@ -105,6 +105,7 @@ class MainActivity : AppCompatActivity() {
         val tvAoAValue = view.findViewById<TextView>(R.id.tvAoAValue)
         val sbCores = view.findViewById<SeekBar>(R.id.sbCores)
         val tvCoreValue = view.findViewById<TextView>(R.id.tvCoreValue)
+        val btnResetDefaults = view.findViewById<Button>(R.id.btnResetDefaults)
 
         val llNacaSelector = view.findViewById<android.view.View>(R.id.llNacaSelector)
         val spNacaProfiles = view.findViewById<android.widget.Spinner>(R.id.spNacaProfiles)
@@ -335,6 +336,48 @@ class MainActivity : AppCompatActivity() {
             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
             override fun onStopTrackingTouch(seekBar: SeekBar?) {}
         })
+
+        btnResetDefaults.setOnClickListener {
+            // 1. Reset Internal State
+            windTunnelView.reinit(400, 200)
+            windTunnelView.setAirflowSpeed(30.0f)
+            windTunnelView.setDensity(1.225f)
+            windTunnelView.setViscosity(1.5e-5f)
+            windTunnelView.updateDtScale(1.0f)
+            windTunnelView.brushShape = WindTunnelView.BrushShape.CIRCLE
+            windTunnelView.baseBrushSize = 8
+            windTunnelView.airfoilAoA = 0.0f
+            windTunnelView.updateVisualizationMode(NativeLBMEngine.VIZ_VELOCITY)
+            windTunnelView.updateBoundaryMode(NativeLBMEngine.BND_PERIODIC)
+            windTunnelView.useAbsolutePressure = false
+            windTunnelView.showDetailedTelemetry = true
+            windTunnelView.showGridlines = false
+            windTunnelView.updateCoreCount(4.coerceAtMost(maxCores))
+
+            // 2. Update UI Widgets in the menu
+            rgSize.check(R.id.rbMedium)
+            sbSpeed.progress = (30.0f * 4.0f).toInt()
+            tvSpeedValue.text = String.format(Locale.US, "%.1f m/s", 30.0f)
+            sbDensity.progress = ((1.225f - 0.5f) * 100.0f).toInt()
+            tvDensityValue.text = String.format(Locale.US, "%.2f kg/m³", 1.225f)
+            sbViscosity.progress = (((1.5e-5f - 1e-6f) / 9.9e-5f) * 100.0f).toInt()
+            tvViscosityValue.text = String.format(Locale.US, "%.1e m²/s", 1.5e-5f)
+            sbDtScale.progress = ((1.0f - 0.5f) * 10.0f).toInt()
+            tvDtValue.text = "Precise (1.0x)"
+            rgShape.check(R.id.rbCircle)
+            llNacaSelector.visibility = android.view.View.GONE
+            sbBrushSize.progress = 8
+            tvBrushSizeValue.text = String.format(Locale.US, "%d px", 8)
+            sbAoA.progress = 20
+            tvAoAValue.text = String.format(Locale.US, "%.0f°", 0.0f)
+            rgViz.check(R.id.rbVizVelocity)
+            swAbsolute.isChecked = false
+            rgBoundary.check(R.id.rbBndPeriodic)
+            swTelemetry.isChecked = true
+            swGridlines.isChecked = false
+            sbCores.progress = (4.coerceAtMost(maxCores)) - 1
+            tvCoreValue.text = (4.coerceAtMost(maxCores)).toString()
+        }
 
         // Expand BottomSheet to full height automatically
         dialog.setOnShowListener {

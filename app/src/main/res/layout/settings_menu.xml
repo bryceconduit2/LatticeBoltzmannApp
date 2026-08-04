@@ -18,6 +18,15 @@
         android:paddingStart="24dp"
         android:paddingEnd="32dp">
 
+        <Button
+            android:id="@+id/btnResetDefaults"
+            style="?attr/materialButtonStyle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:text="@string/btn_reset_defaults"
+            android:textSize="12sp" />
+
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
