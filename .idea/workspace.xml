@@ -56,32 +56,25 @@
       <change beforePath="$PROJECT_DIR$/.gradle/9.5.0/fileHashes/resourceHashesCache.bin" beforeDir="false" afterPath="$PROJECT_DIR$/.gradle/9.5.0/fileHashes/resourceHashesCache.bin" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.gradle/buildOutputCleanup/buildOutputCleanup.lock" beforeDir="false" afterPath="$PROJECT_DIR$/.gradle/buildOutputCleanup/buildOutputCleanup.lock" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.gradle/buildOutputCleanup/cache.properties" beforeDir="false" afterPath="$PROJECT_DIR$/.gradle/buildOutputCleanup/cache.properties" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.gradle/buildOutputCleanup/outputFiles.bin" beforeDir="false" afterPath="$PROJECT_DIR$/.gradle/buildOutputCleanup/outputFiles.bin" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.gradle/config.properties" beforeDir="false" afterPath="$PROJECT_DIR$/.gradle/config.properties" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.gradle/file-system.probe" beforeDir="false" afterPath="$PROJECT_DIR$/.gradle/file-system.probe" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/.gitignore" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/AndroidProjectSystem.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/AndroidProjectSystem.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/LatticeBoltzmannApp.iml" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/androidTestResultsUserPreferences.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/androidTestResultsUserPreferences.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/assetWizardSettings.xml" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/caches/deviceStreaming.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/caches/deviceStreaming.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/compiler.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/compiler.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/deploymentTargetSelector.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/deploymentTargetSelector.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/deviceManager.xml" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/emulatorDisplays.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/emulatorDisplays.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/gradle.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/gradle.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/kotlinc.xml" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/migrations.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/migrations.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/planningMode.xml" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/runConfigurations.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/runConfigurations.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/arm64-v8a/.cmake/api/v1/reply/cache-v2-48405819bb8494bd8aad.json" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/arm64-v8a/.cmake/api/v1/reply/cache-v2-48405819bb8494bd8aad.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/arm64-v8a/.cmake/api/v1/reply/cmakeFiles-v1-0137db804c8af864a75c.json" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/arm64-v8a/.cmake/api/v1/reply/cmakeFiles-v1-0137db804c8af864a75c.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/arm64-v8a/.cmake/api/v1/reply/codemodel-v2-b2c1975b108d7d4f0f78.json" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/arm64-v8a/.cmake/api/v1/reply/codemodel-v2-b2c1975b108d7d4f0f78.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/arm64-v8a/.cmake/api/v1/reply/directory-.-Debug-d0094a50bb2071803777.json" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/arm64-v8a/.cmake/api/v1/reply/directory-.-Debug-d0094a50bb2071803777.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/arm64-v8a/.cmake/api/v1/reply/index-2026-08-04T07-24-42-0691.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/arm64-v8a/.cmake/api/v1/reply/index-2026-08-05T13-34-40-0315.json" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/arm64-v8a/.cmake/api/v1/reply/index-2026-08-05T13-34-40-0315.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/arm64-v8a/.cmake/api/v1/reply/target-fluidsandbox-Debug-7364a993e8619b10e22e.json" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/arm64-v8a/.cmake/api/v1/reply/target-fluidsandbox-Debug-7364a993e8619b10e22e.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/arm64-v8a/.ninja_deps" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/arm64-v8a/.ninja_deps" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/arm64-v8a/.ninja_log" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/arm64-v8a/.ninja_log" afterDir="false" />
@@ -99,19 +92,14 @@
       <change beforePath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/arm64-v8a/CMakeFiles/cmake.check_cache" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/arm64-v8a/CMakeFiles/cmake.check_cache" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/arm64-v8a/CMakeFiles/fluidsandbox.dir/lbm_engine.cpp.o" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/arm64-v8a/CMakeFiles/fluidsandbox.dir/lbm_engine.cpp.o" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/arm64-v8a/CMakeFiles/rules.ninja" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/arm64-v8a/CMakeFiles/rules.ninja" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/arm64-v8a/android_gradle_build.json" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/arm64-v8a/android_gradle_build.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/arm64-v8a/android_gradle_build_mini.json" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/arm64-v8a/android_gradle_build_mini.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/arm64-v8a/build.ninja" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/arm64-v8a/build.ninja" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/arm64-v8a/cmake_install.cmake" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/arm64-v8a/cmake_install.cmake" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/arm64-v8a/compile_commands.json" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/arm64-v8a/compile_commands.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/arm64-v8a/configure_fingerprint.bin" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/arm64-v8a/configure_fingerprint.bin" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/arm64-v8a/metadata_generation_command.txt" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/arm64-v8a/metadata_generation_command.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/arm64-v8a/prefab_config.json" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/arm64-v8a/prefab_config.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/x86_64/.cmake/api/v1/reply/cache-v2-cbb38b446ec0479a6724.json" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/x86_64/.cmake/api/v1/reply/cache-v2-cbb38b446ec0479a6724.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/x86_64/.cmake/api/v1/reply/cmakeFiles-v1-8173f385325e53ce93a0.json" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/x86_64/.cmake/api/v1/reply/cmakeFiles-v1-8173f385325e53ce93a0.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/x86_64/.cmake/api/v1/reply/codemodel-v2-676ba43244ad8907c3cf.json" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/x86_64/.cmake/api/v1/reply/codemodel-v2-676ba43244ad8907c3cf.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/x86_64/.cmake/api/v1/reply/directory-.-Debug-d0094a50bb2071803777.json" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/x86_64/.cmake/api/v1/reply/directory-.-Debug-d0094a50bb2071803777.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/x86_64/.cmake/api/v1/reply/index-2026-08-04T07-25-21-0784.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/x86_64/.cmake/api/v1/reply/index-2026-08-05T13-37-05-0175.json" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/x86_64/.cmake/api/v1/reply/index-2026-08-05T13-37-05-0175.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/x86_64/.cmake/api/v1/reply/target-fluidsandbox-Debug-449b49a7ccdf8afe8951.json" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/x86_64/.cmake/api/v1/reply/target-fluidsandbox-Debug-449b49a7ccdf8afe8951.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/x86_64/.ninja_deps" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/x86_64/.ninja_deps" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/x86_64/.ninja_log" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/x86_64/.ninja_log" afterDir="false" />
@@ -129,110 +117,16 @@
       <change beforePath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/x86_64/CMakeFiles/cmake.check_cache" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/x86_64/CMakeFiles/cmake.check_cache" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/x86_64/CMakeFiles/fluidsandbox.dir/lbm_engine.cpp.o" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/x86_64/CMakeFiles/fluidsandbox.dir/lbm_engine.cpp.o" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/x86_64/CMakeFiles/rules.ninja" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/x86_64/CMakeFiles/rules.ninja" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/x86_64/android_gradle_build.json" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/x86_64/android_gradle_build.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/x86_64/android_gradle_build_mini.json" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/x86_64/android_gradle_build_mini.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/x86_64/build.ninja" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/x86_64/build.ninja" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/x86_64/cmake_install.cmake" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/x86_64/cmake_install.cmake" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/x86_64/compile_commands.json" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/x86_64/compile_commands.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/x86_64/configure_fingerprint.bin" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/x86_64/configure_fingerprint.bin" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/x86_64/metadata_generation_command.txt" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/x86_64/metadata_generation_command.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/arm64-v8a/.cmake/api/v1/query/client-agp/cache-v2" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/arm64-v8a/.cmake/api/v1/query/client-agp/cmakeFiles-v1" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/arm64-v8a/.cmake/api/v1/query/client-agp/codemodel-v2" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/arm64-v8a/.cmake/api/v1/reply/cache-v2-8064105b30eb507e1a95.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/arm64-v8a/.cmake/api/v1/reply/cmakeFiles-v1-5fb5f94696294eee3260.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/arm64-v8a/.cmake/api/v1/reply/codemodel-v2-3dc5c069edf606aa2e7d.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/arm64-v8a/.cmake/api/v1/reply/directory-.-RelWithDebInfo-d0094a50bb2071803777.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/arm64-v8a/.cmake/api/v1/reply/index-2026-08-04T12-31-49-0460.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/arm64-v8a/.cmake/api/v1/reply/target-fluidsandbox-RelWithDebInfo-021bcdf987c463b202f6.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/arm64-v8a/.ninja_deps" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/arm64-v8a/.ninja_log" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/arm64-v8a/CMakeCache.txt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/arm64-v8a/CMakeFiles/3.22.1-g37088a8-dirty/CMakeCCompiler.cmake" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/arm64-v8a/CMakeFiles/3.22.1-g37088a8-dirty/CMakeCXXCompiler.cmake" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/arm64-v8a/CMakeFiles/3.22.1-g37088a8-dirty/CMakeDetermineCompilerABI_C.bin" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/arm64-v8a/CMakeFiles/3.22.1-g37088a8-dirty/CMakeDetermineCompilerABI_CXX.bin" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/arm64-v8a/CMakeFiles/3.22.1-g37088a8-dirty/CMakeSystem.cmake" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/arm64-v8a/CMakeFiles/3.22.1-g37088a8-dirty/CompilerIdC/CMakeCCompilerId.c" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/arm64-v8a/CMakeFiles/3.22.1-g37088a8-dirty/CompilerIdC/CMakeCCompilerId.o" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/arm64-v8a/CMakeFiles/3.22.1-g37088a8-dirty/CompilerIdCXX/CMakeCXXCompilerId.cpp" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/arm64-v8a/CMakeFiles/3.22.1-g37088a8-dirty/CompilerIdCXX/CMakeCXXCompilerId.o" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/arm64-v8a/CMakeFiles/FindOpenMP/OpenMPCheckVersion.c" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/arm64-v8a/CMakeFiles/FindOpenMP/OpenMPCheckVersion.cpp" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/arm64-v8a/CMakeFiles/FindOpenMP/OpenMPTryFlag.c" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/arm64-v8a/CMakeFiles/FindOpenMP/OpenMPTryFlag.cpp" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/arm64-v8a/CMakeFiles/FindOpenMP/ompver_C.bin" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/arm64-v8a/CMakeFiles/FindOpenMP/ompver_CXX.bin" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/arm64-v8a/CMakeFiles/TargetDirectories.txt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/arm64-v8a/CMakeFiles/cmake.check_cache" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/arm64-v8a/CMakeFiles/fluidsandbox.dir/lbm_engine.cpp.o" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/arm64-v8a/CMakeFiles/rules.ninja" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/arm64-v8a/additional_project_files.txt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/arm64-v8a/android_gradle_build.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/arm64-v8a/android_gradle_build_mini.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/arm64-v8a/build.ninja" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/arm64-v8a/build_file_index.txt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/arm64-v8a/cmake_install.cmake" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/arm64-v8a/compile_commands.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/arm64-v8a/compile_commands.json.bin" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/arm64-v8a/configure_fingerprint.bin" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/arm64-v8a/metadata_generation_command.txt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/arm64-v8a/prefab_config.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/arm64-v8a/symbol_folder_index.txt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/hash_key.txt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/x86_64/.cmake/api/v1/query/client-agp/cache-v2" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/x86_64/.cmake/api/v1/query/client-agp/cmakeFiles-v1" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/x86_64/.cmake/api/v1/query/client-agp/codemodel-v2" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/x86_64/.cmake/api/v1/reply/cache-v2-c4c4719c4aded138f4bf.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/x86_64/.cmake/api/v1/reply/cmakeFiles-v1-de1906deda9c22194732.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/x86_64/.cmake/api/v1/reply/codemodel-v2-fe0b2b019e7783d3d5b0.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/x86_64/.cmake/api/v1/reply/directory-.-RelWithDebInfo-d0094a50bb2071803777.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/x86_64/.cmake/api/v1/reply/index-2026-08-04T12-32-02-0782.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/x86_64/.cmake/api/v1/reply/target-fluidsandbox-RelWithDebInfo-df72f300afe8dd6e7a06.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/x86_64/.ninja_deps" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/x86_64/.ninja_log" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/x86_64/CMakeCache.txt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/x86_64/CMakeFiles/3.22.1-g37088a8-dirty/CMakeCCompiler.cmake" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/x86_64/CMakeFiles/3.22.1-g37088a8-dirty/CMakeCXXCompiler.cmake" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/x86_64/CMakeFiles/3.22.1-g37088a8-dirty/CMakeDetermineCompilerABI_C.bin" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/x86_64/CMakeFiles/3.22.1-g37088a8-dirty/CMakeDetermineCompilerABI_CXX.bin" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/x86_64/CMakeFiles/3.22.1-g37088a8-dirty/CMakeSystem.cmake" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/x86_64/CMakeFiles/3.22.1-g37088a8-dirty/CompilerIdC/CMakeCCompilerId.c" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/x86_64/CMakeFiles/3.22.1-g37088a8-dirty/CompilerIdC/CMakeCCompilerId.o" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/x86_64/CMakeFiles/3.22.1-g37088a8-dirty/CompilerIdCXX/CMakeCXXCompilerId.cpp" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/x86_64/CMakeFiles/3.22.1-g37088a8-dirty/CompilerIdCXX/CMakeCXXCompilerId.o" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/x86_64/CMakeFiles/FindOpenMP/OpenMPCheckVersion.c" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/x86_64/CMakeFiles/FindOpenMP/OpenMPCheckVersion.cpp" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/x86_64/CMakeFiles/FindOpenMP/OpenMPTryFlag.c" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/x86_64/CMakeFiles/FindOpenMP/OpenMPTryFlag.cpp" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/x86_64/CMakeFiles/FindOpenMP/ompver_C.bin" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/x86_64/CMakeFiles/FindOpenMP/ompver_CXX.bin" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/x86_64/CMakeFiles/TargetDirectories.txt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/x86_64/CMakeFiles/cmake.check_cache" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/x86_64/CMakeFiles/fluidsandbox.dir/lbm_engine.cpp.o" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/x86_64/CMakeFiles/rules.ninja" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/x86_64/additional_project_files.txt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/x86_64/android_gradle_build.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/x86_64/android_gradle_build_mini.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/x86_64/build.ninja" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/x86_64/build_file_index.txt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/x86_64/cmake_install.cmake" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/x86_64/compile_commands.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/x86_64/compile_commands.json.bin" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/x86_64/configure_fingerprint.bin" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/x86_64/metadata_generation_command.txt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/x86_64/prefab_config.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/x86_64/symbol_folder_index.txt" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/app/.cxx/tools/debug/arm64-v8a/compile_commands.json" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/tools/debug/arm64-v8a/compile_commands.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/.cxx/tools/debug/x86_64/compile_commands.json" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/tools/debug/x86_64/compile_commands.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/tools/release/arm64-v8a/compile_commands.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/tools/release/x86_64/compile_commands.json" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/app/build.gradle.kts" beforeDir="false" afterPath="$PROJECT_DIR$/app/build.gradle.kts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/proguard-rules.pro" beforeDir="false" afterPath="$PROJECT_DIR$/app/proguard-rules.pro" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/src/androidTest/AndroidManifest.xml" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/androidTest/AndroidManifest.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/androidTest/java/com/bc/fluidsandbox/ExampleInstrumentedTest.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/androidTest/java/com/bc/fluidsandbox/ExampleInstrumentedTest.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/androidTest/java/com/bc/fluidsandbox/ExampleInstrumentedTest.kt" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/app/src/androidTest/java/com/bc/fluidsandbox/PhysicsAccuracyTest.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/androidTest/java/com/bc/fluidsandbox/PhysicsAccuracyTest.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/debug/AndroidManifest.xml" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/debug/AndroidManifest.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/src/main/AndroidManifest.xml" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/AndroidManifest.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/src/main/cpp/CMakeLists.txt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/cpp/CMakeLists.txt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/src/main/cpp/lbm_engine.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/cpp/lbm_engine.cpp" afterDir="false" />
@@ -265,7 +159,7 @@
   <component name="ClangdSettings">
     <option name="formatViaClangd" value="false" />
   </component>
-  <component name="ExecutionTargetManager" SELECTED_TARGET="device_and_snapshot_combo_box_target[LocalEmulator::path=C:\Users\bryce\.android\avd\Pixel_3a_API_34_extension_level_7_x86_64.avd]" />
+  <component name="ExecutionTargetManager" SELECTED_TARGET="device_and_snapshot_combo_box_target[PhysicalDevice::serial=RZCX806ZREZ]" />
   <component name="ExternalProjectsData">
     <projectState path="$PROJECT_DIR$">
       <ProjectState />
@@ -503,22 +397,12 @@
         </entry>
         <entry key="com.bc.fluidsandbox">
           <value>
-            <CheckInfo lastCheckTimestamp="1785933764316" />
+            <CheckInfo lastCheckTimestamp="1785939782264" />
           </value>
         </entry>
         <entry key="com.bc.fluidsandbox.test">
           <value>
-            <CheckInfo lastCheckTimestamp="1785933764317" />
-          </value>
-        </entry>
-        <entry key="com.bc.fluidsandbox">
-          <value>
-            <CheckInfo lastCheckTimestamp="1785676021618" />
-          </value>
-        </entry>
-        <entry key="com.bc.fluidsandbox.test">
-          <value>
-            <CheckInfo lastCheckTimestamp="1785676021621" />
+            <CheckInfo lastCheckTimestamp="1785939782268" />
           </value>
         </entry>
       </map>

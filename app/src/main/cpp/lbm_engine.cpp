@@ -71,7 +71,6 @@ struct LBMEngine {
     int width, height;
     float uInlet = 0.06f;       // Current inlet velocity in lattice units
     float uInletTarget = 0.06f; // Target velocity for smoothing
-    float omega = 1.0f / 0.55f; // Base relaxation frequency
     const float cs2 = 1.0f / 3.0f; // Speed of sound squared
     const float SmagorinskyConstant = 0.16f; // Subgrid turbulence parameter
 
@@ -105,10 +104,7 @@ struct LBMEngine {
     std::vector<float> linkQ[9]; // BFL: fractional distance to actual curved wall
 
     // --- LOCAL REFINEMENT (2:1 NESTED GRID) ---
-    std::vector<float> fine_f[9];
-    std::vector<float> fine_fNew[9];
     int roiX1, roiY1, roiX2, roiY2; // Bounds of the fine grid in Coarse units
-    int fine_w, fine_h;
 
     std::vector<float> velocityMag;
     std::vector<float> visualizationSource;
@@ -122,12 +118,7 @@ struct LBMEngine {
     const float weights[9] = {4.f/9, 1.f/9, 1.f/9, 1.f/9, 1.f/9, 1.f/36, 1.f/36, 1.f/36, 1.f/36};
     const int opposite[9] = {0, 3, 4, 1, 2, 7, 8, 5, 6};
 
-    // Precomputed components for the stress tensor calculation
-    const float cxx[9] = {0, 1, 0, 1, 0, 1, 1, 1, 1};
-    const float cyy[9] = {0, 0, 1, 0, 1, 1, 1, 1, 1};
-    const float cxy[9] = {0, 0, 0, 0, 0, 1, -1, 1, -1};
-
-    LBMEngine(int w, int h) : width(w), height(h), roiX1(0), roiY1(0), roiX2(0), roiY2(0), fine_w(0), fine_h(0) {
+    LBMEngine(int w, int h) : width(w), height(h), roiX1(0), roiY1(0), roiX2(0), roiY2(0) {
         for (int i = 0; i < 256; i++) colorLUT[i] = heatMapColor(i / 255.0f);
         int numProcs = omp_get_num_procs();
         numThreads = (numProcs >= 8 ? 4 : numProcs);
@@ -207,17 +198,6 @@ struct LBMEngine {
             roiY1 = std::max(0, stepMinY - 15);
             roiX2 = std::min(width - 1, stepMaxX + 15);
             roiY2 = std::min(height - 1, stepMaxY + 15);
-
-            fine_w = (roiX2 - roiX1 + 1) * 2;
-            fine_h = (roiY2 - roiY1 + 1) * 2;
-
-            // Resize fine grid if needed
-            if (fine_f[0].size() != (size_t)(fine_w * fine_h)) {
-                for (int i = 0; i < 9; i++) {
-                    fine_f[i].assign(fine_w * fine_h, weights[i]);
-                    fine_fNew[i].resize(fine_w * fine_h);
-                }
-            }
         }
 
         static const int CX[9] = { 0, 1, 0, -1, 0, 1, -1, -1, 1 };
@@ -700,7 +680,6 @@ extern "C" JNIEXPORT jfloat JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_get
 extern "C" JNIEXPORT jfloat JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_getViscosityNative(JNIEnv *env, jobject thiz, jlong ptr) { return reinterpret_cast<LBMEngine*>(ptr)->nuAir; }
 extern "C" JNIEXPORT jfloat JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_getDXNative(JNIEnv *env, jobject thiz, jlong ptr) { return reinterpret_cast<LBMEngine*>(ptr)->dx; }
 extern "C" JNIEXPORT jfloat JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_getHorizontalSpanNative(JNIEnv *env, jobject thiz, jlong ptr) { return reinterpret_cast<LBMEngine*>(ptr)->horizontalSpan; }
-extern "C" JNIEXPORT jfloat JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_getFrontalAreaNative(JNIEnv *env, jobject thiz, jlong ptr) { return reinterpret_cast<LBMEngine*>(ptr)->frontalArea; }
 extern "C" JNIEXPORT void JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_setVisualizationModeNative(JNIEnv *env, jobject thiz, jlong ptr, jint m) { reinterpret_cast<LBMEngine*>(ptr)->vizMode = static_cast<LBMEngine::VisualizationMode>(m); }
 extern "C" JNIEXPORT void JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_setBoundaryModeNative(JNIEnv *env, jobject thiz, jlong ptr, jint mode) {
     reinterpret_cast<LBMEngine*>(ptr)->boundaryMode = static_cast<LBMEngine::BoundaryMode>(mode);

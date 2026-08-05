@@ -1,3 +1,5 @@
 # ninja log v5
 0	2496	8076403318718553	CMakeFiles/fluidsandbox.dir/lbm_engine.cpp.o	d0c02ce030aa7977
 2507	2758	8076403321427417	C:/Users/bryce/AndroidStudioProjects/LatticeBoltzmannApp/app/build/intermediates/cxx/Debug/17w606e2/obj/arm64-v8a/libfluidsandbox.so	f22e9a13ce7bf5b9
+8	1810	8076435005750015	CMakeFiles/fluidsandbox.dir/lbm_engine.cpp.o	d0c02ce030aa7977
+1811	2068	8076435008286246	C:/Users/bryce/AndroidStudioProjects/LatticeBoltzmannApp/app/build/intermediates/cxx/Debug/17w606e2/obj/arm64-v8a/libfluidsandbox.so	f22e9a13ce7bf5b9
