@@ -428,10 +428,25 @@
             android:textColor="@android:color/white" />
 
         <androidx.appcompat.widget.SwitchCompat
+            android:id="@+id/swSmoothHD"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:checked="true"
+            android:text="Smooth HD Graphics (Vector Path)"
+            android:textColor="@android:color/white" />
+
+        <androidx.appcompat.widget.SwitchCompat
             android:id="@+id/swGridlines"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/sw_gridlines"
+            android:textColor="@android:color/white" />
+
+        <androidx.appcompat.widget.SwitchCompat
+            android:id="@+id/swRefinement"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/sw_local_refinement"
             android:textColor="@android:color/white" />
 
         <Space

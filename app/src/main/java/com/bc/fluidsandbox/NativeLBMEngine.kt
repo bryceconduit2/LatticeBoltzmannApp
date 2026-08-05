@@ -52,8 +52,8 @@ class NativeLBMEngine(val width: Int, val height: Int) {
     /**
      * Executes physics steps and renders the result directly into a Bitmap.
      */
-    fun stepAndRender(bitmap: Bitmap, steps: Int) {
-        stepAndRenderNative(enginePtr, bitmap, steps)
+    fun stepAndRender(bitmap: Bitmap, steps: Int, drawBlack: Boolean = true) {
+        stepAndRenderNative(enginePtr, bitmap, steps, drawBlack)
     }
 
     /**
@@ -145,6 +145,15 @@ class NativeLBMEngine(val width: Int, val height: Int) {
         }
     }
 
+    /**
+     * Toggles advanced grid refinement around obstacles.
+     */
+    fun setLocalRefinementEnabled(enabled: Boolean) {
+        if (enginePtr != 0L) {
+            setLocalRefinementEnabledNative(enginePtr, enabled)
+        }
+    }
+
     // --- Data Retrieval Methods for Telemetry & Graphs ---
 
     fun getInletVelocity(): Float {
@@ -227,7 +236,7 @@ class NativeLBMEngine(val width: Int, val height: Int) {
 
     private external fun initEngine(width: Int, height: Int): Long
     private external fun stepNative(ptr: Long, steps: Int)
-    private external fun stepAndRenderNative(ptr: Long, bitmap: Bitmap, steps: Int)
+    private external fun stepAndRenderNative(ptr: Long, bitmap: Bitmap, steps: Int, drawBlack: Boolean)
     private external fun addObstacleNative(ptr: Long, cx: Int, cy: Int, radius: Int)
     private external fun addBoxObstacleNative(ptr: Long, cx: Int, cy: Int, size: Int)
     private external fun addNacaAirfoilNative(ptr: Long, cx: Int, cy: Int, chord: Int, m: Float, p: Float, t: Float, angle: Float)
@@ -236,6 +245,7 @@ class NativeLBMEngine(val width: Int, val height: Int) {
     private external fun setDensityNative(ptr: Long, density: Float)
     private external fun setViscosityNative(ptr: Long, viscosity: Float)
     private external fun setDeltaTimeNative(ptr: Long, dt: Float)
+    private external fun setLocalRefinementEnabledNative(ptr: Long, enabled: Boolean)
     private external fun setVisualizationModeNative(ptr: Long, mode: Int)
     private external fun setBoundaryModeNative(ptr: Long, mode: Int)
     private external fun getInletVelocityNative(ptr: Long): Float

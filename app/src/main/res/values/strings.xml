@@ -45,6 +45,7 @@
 
     <string name="sw_telemetry">Show Detailed Stats</string>
     <string name="sw_gridlines">Show Gridlines</string>
+    <string name="sw_local_refinement">Refined Boundary Physics (Experimental - Slower)</string>
 
     <string name="label_processing_cores">Processing Cores</string>
 

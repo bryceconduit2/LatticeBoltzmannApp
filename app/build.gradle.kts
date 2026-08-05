@@ -14,6 +14,8 @@ android {
         versionCode = 1
         versionName = "1.0"
 
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
         // 1. Configure the C++ compiler flags
         externalNativeBuild {
             cmake {
@@ -46,11 +48,11 @@ android {
     }
     sourceSets {
         getByName("main") {
-            java.srcDirs("src/main/java")
+            java.srcDirs("src/main/java", "src/main/kotlin")
             jniLibs.srcDirs("src/main/jniLibs")
         }
         getByName("androidTest") {
-            java.srcDirs("src/androidTest/java")
+            java.srcDirs("src/androidTest/java", "src/androidTest/kotlin")
         }
     }
 

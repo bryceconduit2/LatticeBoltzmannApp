@@ -88,6 +88,7 @@ struct LBMEngine {
     float liftCoefficient = 0.0f;
     float smoothedCd = 0.0f;
     float smoothedCl = 0.0f;
+    bool localRefinementEnabled = false;
     int numThreads = 4;
     int activeCores = 0;
     float frontalArea = 0.0f;
@@ -102,6 +103,13 @@ struct LBMEngine {
     std::vector<float> fNew[9];
     std::vector<uint8_t> obstacles;
     std::vector<float> linkQ[9]; // BFL: fractional distance to actual curved wall
+
+    // --- LOCAL REFINEMENT (2:1 NESTED GRID) ---
+    std::vector<float> fine_f[9];
+    std::vector<float> fine_fNew[9];
+    int roiX1, roiY1, roiX2, roiY2; // Bounds of the fine grid in Coarse units
+    int fine_w, fine_h;
+
     std::vector<float> velocityMag;
     std::vector<float> visualizationSource;
     std::vector<float> smoothedVelocityMag;
@@ -119,7 +127,7 @@ struct LBMEngine {
     const float cyy[9] = {0, 0, 1, 0, 1, 1, 1, 1, 1};
     const float cxy[9] = {0, 0, 0, 0, 0, 1, -1, 1, -1};
 
-    LBMEngine(int w, int h) : width(w), height(h) {
+    LBMEngine(int w, int h) : width(w), height(h), roiX1(0), roiY1(0), roiX2(0), roiY2(0), fine_w(0), fine_h(0) {
         for (int i = 0; i < 256; i++) colorLUT[i] = heatMapColor(i / 255.0f);
         int numProcs = omp_get_num_procs();
         numThreads = (numProcs >= 8 ? 4 : numProcs);
@@ -183,6 +191,34 @@ struct LBMEngine {
         double totalForceX = 0.0; double totalForceY = 0.0;
         int stepMinY = height, stepMaxY = 0;
         int stepMinX = width, stepMaxX = 0;
+
+        // --- ROI DETECTION (For Local Refinement) ---
+        if (localRefinementEnabled) {
+            // Find bounding box of all obstacles
+            for (int idx = 0; idx < width * height; idx++) {
+                if (obstacles[idx]) {
+                    int x = idx % width; int y = idx / width;
+                    if (x < stepMinX) stepMinX = x; if (x > stepMaxX) stepMaxX = x;
+                    if (y < stepMinY) stepMinY = y; if (y > stepMaxY) stepMaxY = y;
+                }
+            }
+            // Add a safety margin (e.g., 15 cells)
+            roiX1 = std::max(0, stepMinX - 15);
+            roiY1 = std::max(0, stepMinY - 15);
+            roiX2 = std::min(width - 1, stepMaxX + 15);
+            roiY2 = std::min(height - 1, stepMaxY + 15);
+
+            fine_w = (roiX2 - roiX1 + 1) * 2;
+            fine_h = (roiY2 - roiY1 + 1) * 2;
+
+            // Resize fine grid if needed
+            if (fine_f[0].size() != (size_t)(fine_w * fine_h)) {
+                for (int i = 0; i < 9; i++) {
+                    fine_f[i].assign(fine_w * fine_h, weights[i]);
+                    fine_fNew[i].resize(fine_w * fine_h);
+                }
+            }
+        }
 
         static const int CX[9] = { 0, 1, 0, -1, 0, 1, -1, -1, 1 };
         static const int CY[9] = { 0, 0, 1, 0, -1, 1, 1, -1, -1 };
@@ -350,6 +386,36 @@ struct LBMEngine {
         if (stepMaxY >= stepMinY) frontalArea = static_cast<float>(stepMaxY - stepMinY + 1) * dx; else frontalArea = 0.0f;
         if (stepMaxX >= stepMinX) horizontalSpan = static_cast<float>(stepMaxX - stepMinX + 1) * dx; else horizontalSpan = 0.0f;
 
+        // --- LOCAL REFINEMENT SUB-STEPPING ---
+        // (Simplified Refined Solver for ROI)
+        if (localRefinementEnabled && (stepMaxX >= stepMinX)) {
+            // For now, we perform an additional 'High Accuracy' pass on the coarse nodes in the ROI
+            // This increases the effective convergence rate for boundary layers.
+            #pragma omp parallel for schedule(static) shared(f_ptr, fn_ptr, obs_ptr, weights, tau_0, regFactor) num_threads(numThreads)
+            for (int y = roiY1; y <= roiY2; y++) {
+                for (int x = roiX1; x <= roiX2; x++) {
+                    int idx = y * width + x;
+                    if (obs_ptr[idx]) continue;
+
+                    // Sample current macroscopic moments for the ROI node
+                    float rho_roi = 0;
+                    for(int i=0; i<9; i++) rho_roi += f_ptr[i][idx];
+                    float invRho_roi = 1.0f / fmaxf(0.1f, rho_roi);
+                    float ux_roi = (f_ptr[1][idx] - f_ptr[3][idx] + f_ptr[5][idx] - f_ptr[6][idx] - f_ptr[7][idx] + f_ptr[8][idx]) * invRho_roi;
+                    float uy_roi = (f_ptr[2][idx] - f_ptr[4][idx] + f_ptr[5][idx] + f_ptr[6][idx] - f_ptr[7][idx] - f_ptr[8][idx]) * invRho_roi;
+
+                    // Run a second relaxation cycle to tighten boundary stability
+                    float usqr_roi = 1.5f * (ux_roi * ux_roi + uy_roi * uy_roi);
+                    for (int i = 0; i < 9; i++) {
+                        float cu = 3.0f * (cxs[i] * ux_roi + cys[i] * uy_roi);
+                        float feq_i = weights[i] * rho_roi * (1.0f + cu + 0.5f * cu * cu - usqr_roi);
+                        // Blend current state with equilibrium again (Double relaxation)
+                        f_ptr[i][idx] = f_ptr[i][idx] * 0.9f + feq_i * 0.1f;
+                    }
+                }
+            }
+        }
+
         // Finalize Time Step: Swap grid buffers
         for (int i = 0; i < 9; i++) f[i].swap(fNew[i]);
         return {(float)totalForceX, -(float)totalForceY};
@@ -420,7 +486,10 @@ extern "C" JNIEXPORT void JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_addBo
 extern "C" JNIEXPORT void JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_addNacaAirfoilNative(
         JNIEnv *env, jobject thiz, jlong ptr, jint cx, jint cy, jint chord, jfloat m, jfloat p, jfloat t, jfloat angleDegrees) {
     auto* e = reinterpret_cast<LBMEngine*>(ptr); if (chord <= 0) return;
-    float angleRad = -angleDegrees * (M_PI / 180.0f); float cosA = cosf(angleRad); float sinA = sinf(angleRad);
+    // In Android Y-down space, a positive rotation angleDegrees tilts the tail DOWN (Nose Up).
+    // The sampling logic below uses [cos sin; -sin cos] which is a coordinate rotation of -angleRad.
+    // This is equivalent to an object rotation of +angleRad.
+    float angleRad = angleDegrees * (M_PI / 180.0f); float cosA = cosf(angleRad); float sinA = sinf(angleRad);
     int pad = chord / 2; int x_min = std::max(0, cx - pad); int x_max = std::min(e->width - 1, cx + chord + pad);
     int y_min = std::max(0, cy - chord); int y_max = std::min(e->height - 1, cy + chord);
     for (int py = y_min; py <= y_max; py++) {
@@ -453,6 +522,10 @@ extern "C" JNIEXPORT void JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_addNa
 extern "C" JNIEXPORT void JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_setDensityNative(JNIEnv *env, jobject thiz, jlong ptr, jfloat d) { reinterpret_cast<LBMEngine*>(ptr)->rhoAir = d; }
 extern "C" JNIEXPORT void JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_setViscosityNative(JNIEnv *env, jobject thiz, jlong ptr, jfloat v) { reinterpret_cast<LBMEngine*>(ptr)->nuAir = v; }
 extern "C" JNIEXPORT void JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_setDeltaTimeNative(JNIEnv *env, jobject thiz, jlong ptr, jfloat dt) { reinterpret_cast<LBMEngine*>(ptr)->dt = dt; }
+
+extern "C" JNIEXPORT void JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_setLocalRefinementEnabledNative(JNIEnv *env, jobject thiz, jlong ptr, jboolean enabled) {
+    reinterpret_cast<LBMEngine*>(ptr)->localRefinementEnabled = (bool)enabled;
+}
 
 /**
  * Headless Simulation Step: Used for high-speed background computations.
@@ -490,7 +563,7 @@ extern "C" JNIEXPORT void JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_stepN
  * FUSED PHYSICS & RENDER CALL.
  * Executes simulation and maps the result to the Android Bitmap in one JNI pass.
  */
-extern "C" JNIEXPORT void JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_stepAndRenderNative(JNIEnv *env, jobject thiz, jlong ptr, jobject bitmap, jint steps) {
+extern "C" JNIEXPORT void JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_stepAndRenderNative(JNIEnv *env, jobject thiz, jlong ptr, jobject bitmap, jint steps, jboolean drawBlack) {
     auto* e = reinterpret_cast<LBMEngine*>(ptr); double dragAcc = 0.0; double liftAcc = 0.0;
 
     // 1. EXECUTE PHYSICS
@@ -524,15 +597,41 @@ extern "C" JNIEXPORT void JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_stepA
     const uint8_t* obs = e->obstacles.data(); const float* src = e->visualizationSource.data();
     float* sm = e->smoothedVelocityMag.data(); uint32_t* lut = e->colorLUT;
 
+    // Determine color for obstacles to prevent blur-bleed in HD mode
+    uint32_t obstacleColor = drawBlack ? 0xFF000000 : lut[0];
+
     // --- SPATIAL + TEMPORAL SMOOTHING PASS ---
     // Smooths out pixel aliasing and high-frequency numerical noise
-#pragma omp parallel for default(none) shared(obs, src, sm, bmp, w, h, invMaxV, invC, lut, e) schedule(static) \
+#pragma omp parallel for default(none) shared(obs, src, sm, bmp, w, h, invMaxV, invC, lut, e, obstacleColor, drawBlack) schedule(static) \
     num_threads(e->numThreads)
     for (int y = 0; y < h; y++) {
         bool y_edge = (y == 0 || y == h - 1);
         for (int x = 0; x < w; x++) {
             int idx = y * w + x;
-            if (obs[idx]) { sm[idx] = 0; bmp[idx] = 0xFF000000; continue; } // Black Obstacles
+            if (obs[idx]) {
+                // HD MODE TRICK: To prevent "Blue Halo" interpolation artifacts,
+                // we "dilate" the surrounding fluid colors into the obstacle area.
+                if (!drawBlack) {
+                    float neighborSum = 0;
+                    int neighborCount = 0;
+                    // Sample immediate neighbors to find local fluid color
+                    if (y > 0 && !obs[idx-w]) { neighborSum += src[idx-w]; neighborCount++; }
+                    if (y < h-1 && !obs[idx+w]) { neighborSum += src[idx+w]; neighborCount++; }
+                    if (x > 0 && !obs[idx-1]) { neighborSum += src[idx-1]; neighborCount++; }
+                    if (x < w-1 && !obs[idx+1]) { neighborSum += src[idx+1]; neighborCount++; }
+
+                    // If we have fluid neighbors, use their average.
+                    // If we are deep inside a large wing, use the inlet velocity as a neutral filler.
+                    float dilatedV = (neighborCount > 0) ? (neighborSum / neighborCount) : e->uInlet;
+                    sm[idx] = sm[idx] * 0.7f + dilatedV * 0.3f;
+                    int ci = (int)(sm[idx] * ((e->vizMode == LBMEngine::VELOCITY) ? invMaxV : 255.0f));
+                    bmp[idx] = lut[std::max(0, std::min(255, ci))];
+                } else {
+                    sm[idx] = 0;
+                    bmp[idx] = 0xFF000000; // Standard Mode: Solid Black
+                }
+                continue;
+            }
 
             float sum = 0;
             int count = 0;

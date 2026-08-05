@@ -93,7 +93,7 @@ class PhysicsAccuracyTest {
         val engine10 = NativeLBMEngine(width, height)
         engine10.setBoundaryMode(NativeLBMEngine.BND_PERIODIC)
         engine10.setInletVelocity(25.0f)
-        engine10.addNacaAirfoil(width / 4, height / 2, 50, 0.04f, 0.4f, 0.12f, -10.0f)
+        engine10.addNacaAirfoil(width / 4, height / 2, 50, 0.04f, 0.4f, 0.12f, 10.0f)
         repeat(100) { engine10.step(100) }
         val cl10 = engine10.getInstantLiftCoefficient()
         
@@ -134,7 +134,7 @@ class PhysicsAccuracyTest {
         val engine12 = NativeLBMEngine(width, height)
         engine12.setBoundaryMode(NativeLBMEngine.BND_PERIODIC)
         engine12.setInletVelocity(20.0f)
-        engine12.addNacaAirfoil(width / 4, height / 2, 50, 0.0f, 0.0f, 0.12f, -12.0f)
+        engine12.addNacaAirfoil(width / 4, height / 2, 50, 0.0f, 0.0f, 0.12f, 12.0f)
         repeat(150) { engine12.step(100) }
         val cd12 = engine12.getInstantDragCoefficient()
 
@@ -142,7 +142,7 @@ class PhysicsAccuracyTest {
         val engine45 = NativeLBMEngine(width, height)
         engine45.setBoundaryMode(NativeLBMEngine.BND_PERIODIC)
         engine45.setInletVelocity(20.0f)
-        engine45.addNacaAirfoil(width / 4, height / 2, 50, 0.0f, 0.0f, 0.12f, -45.0f)
+        engine45.addNacaAirfoil(width / 4, height / 2, 50, 0.0f, 0.0f, 0.12f, 45.0f)
         repeat(150) { engine45.step(100) }
         val cd45 = engine45.getInstantDragCoefficient()
 
@@ -168,7 +168,7 @@ class PhysicsAccuracyTest {
         val engine15 = NativeLBMEngine(width, height)
         engine15.setBoundaryMode(NativeLBMEngine.BND_PERIODIC)
         engine15.setInletVelocity(25.0f)
-        engine15.addNacaAirfoil(width / 4, height / 2, 50, 0.02f, 0.4f, 0.12f, -15.0f)
+        engine15.addNacaAirfoil(width / 4, height / 2, 50, 0.02f, 0.4f, 0.12f, 15.0f)
         repeat(100) { engine15.step(100) }
         val cd15 = engine15.getInstantDragCoefficient()
         
@@ -205,21 +205,25 @@ class PhysicsAccuracyTest {
         val width = 400
         val height = 200
         
+        // At 0 deg, 2412 should have positive lift
         val engine0 = NativeLBMEngine(width, height)
         engine0.setBoundaryMode(NativeLBMEngine.BND_PERIODIC)
         engine0.setInletVelocity(25.0f)
         engine0.addNacaAirfoil(width / 4, height / 2, 60, 0.02f, 0.4f, 0.12f, 0.0f)
         repeat(150) { engine0.step(100) }
         val cl0 = engine0.getInstantLiftCoefficient()
+        saveSnapshot(engine0, "Naca2412_0deg", "Cl: %.2f".format(Locale.US, cl0))
 
-        val engineP2 = NativeLBMEngine(width, height)
-        engineP2.setBoundaryMode(NativeLBMEngine.BND_PERIODIC)
-        engineP2.setInletVelocity(25.0f)
-        engineP2.addNacaAirfoil(width / 4, height / 2, 60, 0.02f, 0.4f, 0.12f, 2.0f)
-        repeat(150) { engineP2.step(100) }
-        val clP2 = engineP2.getInstantLiftCoefficient()
+        // At -2.0 deg (Nose Down), 2412 should be closer to zero lift
+        val engineM2 = NativeLBMEngine(width, height)
+        engineM2.setBoundaryMode(NativeLBMEngine.BND_PERIODIC)
+        engineM2.setInletVelocity(25.0f)
+        engineM2.addNacaAirfoil(width / 4, height / 2, 60, 0.02f, 0.4f, 0.12f, -2.0f)
+        repeat(150) { engineM2.step(100) }
+        val clM2 = engineM2.getInstantLiftCoefficient()
+        saveSnapshot(engineM2, "Naca2412_m2deg", "Cl: %.2f".format(Locale.US, clM2))
 
-        assertTrue("NACA 2412 at 0 deg ($cl0) should have more lift than at nose-down 2 deg ($clP2)", cl0 > clP2 + 0.05f)
+        assertTrue("NACA 2412 at 0 deg ($cl0) should have more lift than at nose-down 2 deg ($clM2)", cl0 > clM2 + 0.05f)
     }
 
     /**
@@ -261,7 +265,8 @@ class PhysicsAccuracyTest {
             val e = NativeLBMEngine(width, height)
             e.setBoundaryMode(NativeLBMEngine.BND_PERIODIC)
             e.setInletVelocity(25.0f)
-            e.addNacaAirfoil(width / 4, height / 2, 60, 0.0f, 0.0f, 0.12f, -alpha)
+            // Use positive for Nose-Up
+            e.addNacaAirfoil(width / 4, height / 2, 60, 0.0f, 0.0f, 0.12f, alpha)
             repeat(150) { e.step(100) }
             return e.getInstantLiftCoefficient()
         }
@@ -284,7 +289,7 @@ class PhysicsAccuracyTest {
     fun testCamberedStallDelay() {
         val width = 400
         val height = 200
-        val alpha = -12.0f 
+        val alpha = 12.0f 
         
         val engineSym = NativeLBMEngine(width, height)
         engineSym.setBoundaryMode(NativeLBMEngine.BND_PERIODIC)

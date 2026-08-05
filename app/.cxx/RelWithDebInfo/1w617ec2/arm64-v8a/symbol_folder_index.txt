@@ -1,1 +1,0 @@
-C:\Users\bryce\AndroidStudioProjects\LatticeBoltzmannApp\app\build\intermediates\cxx\RelWithDebInfo\1w617ec2\obj\arm64-v8a

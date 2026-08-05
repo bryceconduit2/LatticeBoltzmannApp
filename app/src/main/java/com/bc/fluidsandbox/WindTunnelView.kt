@@ -41,10 +41,18 @@ class WindTunnelView @JvmOverloads constructor(
     @Volatile private var touchSimY = 0
     private var lastTouchSimX = -1
     private var lastTouchSimY = -1
+    private var startTouchSimX = 0
+    private var startTouchSimY = 0
+    private var isBrushMode = false
+    private val touchSlop = dpToPx(8f)
+    
     private var currentRadius = 8
     private var persistentObjectRadius = 8
     private var hasActiveObject = false
     private val maxRadius = 60 // Max growth limit to prevent blocking the entire tunnel
+
+    private var lastNacaSimX = -1f
+    private var lastNacaSimY = -1f
     
     // --- Current Physics Settings ---
     var brushShape = BrushShape.CIRCLE
@@ -54,6 +62,7 @@ class WindTunnelView @JvmOverloads constructor(
     
     var showDetailedTelemetry = true
     var showGridlines = false
+    var useSmoothHD = true
     var baseBrushSize = 8
     var airfoilAoA = 0.0f
     var visualizationMode = NativeLBMEngine.VIZ_VELOCITY
@@ -61,6 +70,12 @@ class WindTunnelView @JvmOverloads constructor(
     var useAbsolutePressure = false
     var coreCount = 4
     var simulationDtScale = 1.0f
+    var useLocalRefinement = false
+
+    // Vector Graphics Overlay
+    private val obstaclePath = Path()
+    private val currentGrowthPath = Path()
+    private val matrix = Matrix()
 
     // Telemetry accumulators
     private var lastTime = System.nanoTime()
@@ -107,6 +122,15 @@ class WindTunnelView @JvmOverloads constructor(
         isAntiAlias = true
     }
 
+    private val vectorPaint = Paint().apply {
+        color = Color.BLACK
+        style = Paint.Style.FILL_AND_STROKE
+        strokeWidth = dpToPx(2.5f) // Increased to completely hide any underlying grid blur
+        strokeJoin = Paint.Join.ROUND
+        strokeCap = Paint.Cap.ROUND
+        isAntiAlias = true
+    }
+
     private val scalePaint = Paint().apply {
         style = Paint.Style.FILL
         isAntiAlias = true
@@ -146,24 +170,58 @@ class WindTunnelView @JvmOverloads constructor(
             MotionEvent.ACTION_DOWN -> {
                 performClick()
                 isHolding = true
+                isBrushMode = false
                 currentRadius = baseBrushSize 
                 touchSimX = (event.x / scaleX).toInt()
                 touchSimY = (event.y / scaleY).toInt()
+                startTouchSimX = touchSimX
+                startTouchSimY = touchSimY
                 lastTouchSimX = touchSimX
                 lastTouchSimY = touchSimY
+                
+                // Clear the current growth path to start fresh
+                synchronized(currentGrowthPath) {
+                    currentGrowthPath.reset()
+                }
                 return true
             }
             MotionEvent.ACTION_MOVE -> {
-                touchSimX = (event.x / scaleX).toInt()
-                touchSimY = (event.y / scaleY).toInt()
+                val tx = (event.x / scaleX).toInt()
+                val ty = (event.y / scaleY).toInt()
+                
+                if (!isBrushMode) {
+                    val dist = hypot((event.x - startTouchSimX * scaleX), (event.y - startTouchSimY * scaleY))
+                    if (dist > touchSlop) {
+                        isBrushMode = true
+                        // When switching to brush, add the grown shape to permanent obstacles
+                        finalizeCurrentGrowth()
+                    }
+                }
+                
+                touchSimX = tx
+                touchSimY = ty
                 return true
             }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                isHolding = false 
+                if (isHolding) {
+                    if (!isBrushMode) {
+                        finalizeCurrentGrowth()
+                    }
+                    isHolding = false
+                }
                 return true
             }
         }
         return super.onTouchEvent(event)
+    }
+
+    private fun finalizeCurrentGrowth() {
+        synchronized(currentGrowthPath) {
+            synchronized(obstaclePath) {
+                obstaclePath.addPath(currentGrowthPath)
+            }
+            currentGrowthPath.reset()
+        }
     }
 
     override fun performClick(): Boolean {
@@ -193,40 +251,51 @@ class WindTunnelView @JvmOverloads constructor(
                 engine.setVisualizationMode(visualizationMode)
                 engine.setBoundaryMode(boundaryMode)
                 engine.setNumThreads(coreCount)
+                engine.setLocalRefinementEnabled(useLocalRefinement)
                 
                 pendingReinit = null
             }
 
             // --- DRAWING LOGIC ---
             if (isHolding) {
-                val dx = (touchSimX - lastTouchSimX).toFloat()
-                val dy = (touchSimY - lastTouchSimY).toFloat()
-                val dist = hypot(dx, dy)
+                if (isBrushMode) {
+                    val dx = (touchSimX - lastTouchSimX).toFloat()
+                    val dy = (touchSimY - lastTouchSimY).toFloat()
+                    val dist = hypot(dx, dy)
 
-                if (dist > 0.5f) {
-                    // INTERPOLATED BRUSH: Ensures no gaps if the user moves their finger quickly
-                    currentRadius = baseBrushSize
-                    val stepSize = (baseBrushSize / 4.0).coerceAtLeast(1.0)
-                    val steps = Math.ceil(dist / stepSize).toInt().coerceAtLeast(1)
-                    
-                    for (i in 0..steps) {
-                        val t = i.toFloat() / steps
-                        val px = (lastTouchSimX + dx * t).toInt()
-                        val py = (lastTouchSimY + dy * t).toInt()
-                        addObstacleToEngine(px, py, currentRadius)
+                    if (dist > 0.5f) {
+                        currentRadius = baseBrushSize
+                        if (brushShape == BrushShape.NACA) {
+                            // Spaced out NACA wings to avoid overlap mess
+                            val chord = currentRadius * 5f
+                            val distSinceLast = hypot(touchSimX - lastNacaSimX, touchSimY - lastNacaSimY)
+                            if (distSinceLast > chord * 2f) {
+                                addObstacleToEngine(touchSimX, touchSimY, currentRadius, true)
+                                lastNacaSimX = touchSimX.toFloat()
+                                lastNacaSimY = touchSimY.toFloat()
+                            }
+                        } else {
+                            val stepSize = (baseBrushSize / 4.0).coerceAtLeast(1.0)
+                            val steps = Math.ceil(dist / stepSize).toInt().coerceAtLeast(1)
+                            for (i in 0..steps) {
+                                val t = i.toFloat() / steps
+                                val px = (lastTouchSimX + dx * t).toInt()
+                                val py = (lastTouchSimY + dy * t).toInt()
+                                addObstacleToEngine(px, py, currentRadius, true)
+                            }
+                        }
                     }
+                    lastTouchSimX = touchSimX
+                    lastTouchSimY = touchSimY
                 } else {
-                    // STATIONARY GROWTH: Slowly grows the object if the user holds their finger still
+                    // GROWTH MODE: Grow at initial touch point
                     if (currentRadius < maxRadius) {
                         currentRadius += 1 
-                        if (currentRadius > maxRadius) currentRadius = maxRadius
                     }
-                    addObstacleToEngine(touchSimX, touchSimY, currentRadius)
+                    addObstacleToEngine(startTouchSimX, startTouchSimY, currentRadius, false)
+                    lastNacaSimX = -1000f // Reset spacing tracker
                 }
-                
                 persistentObjectRadius = currentRadius
-                lastTouchSimX = touchSimX
-                lastTouchSimY = touchSimY
             }
 
             // --- ENGINE EXECUTION ---
@@ -240,7 +309,7 @@ class WindTunnelView @JvmOverloads constructor(
             lastTime = now
 
             // TRIGGER THE C++ PHYSICS KERNEL
-            engine.stepAndRender(bitmap, stepsPerFrame)
+            engine.stepAndRender(bitmap, stepsPerFrame, !useSmoothHD)
             
             // STREAM TELEMETRY TO GRAPH
             val elapsedSec = engine.getTotalSteps() * 0.000005f
@@ -259,20 +328,41 @@ class WindTunnelView @JvmOverloads constructor(
             // --- UI RENDERING ---
             val canvas = holder.lockCanvas()
             if (canvas != null) {
-                // 1. Draw the actual physics fluid map
+                // Toggle interpolation based on HD setting
+                paint.isFilterBitmap = useSmoothHD
+
+                // 1. Draw the actual physics fluid map (Pixelated or Interpolated)
                 canvas.drawBitmap(bitmap, null, Rect(0, 0, width, height), paint)
+
+                // 2. High-Resolution Vector Path Overlay (Only in HD mode)
+                if (useSmoothHD) {
+                    val scaleX = width.toFloat() / simWidth
+                    val scaleY = height.toFloat() / simHeight
+                    matrix.reset()
+                    matrix.postScale(scaleX, scaleY)
+                    
+                    synchronized(obstaclePath) {
+                        val drawPath = Path(obstaclePath)
+                        drawPath.transform(matrix)
+                        canvas.drawPath(drawPath, vectorPaint)
+                    }
+                    
+                    synchronized(currentGrowthPath) {
+                        val drawPath = Path(currentGrowthPath)
+                        drawPath.transform(matrix)
+                        canvas.drawPath(drawPath, vectorPaint)
+                    }
+                }
                 
                 if (showGridlines) {
                     drawGrid(canvas)
                 }
                 
-                // 2. Draw the visual touch preview (Outline)
+                // 3. Draw the visual touch preview (Outline)
                 if (isHolding) {
-                    val scaleX = width.toFloat() / simWidth
-                    val scaleY = height.toFloat() / simHeight
                     val r = currentRadius * scaleX
-                    val cx = touchSimX * scaleX
-                    val cy = touchSimY * scaleY
+                    val cx = (if (isBrushMode) touchSimX else startTouchSimX) * scaleX
+                    val cy = (if (isBrushMode) touchSimY else startTouchSimY) * scaleY
 
                     when (brushShape) {
                         BrushShape.CIRCLE -> canvas.drawCircle(cx, cy, r, previewPaint)
@@ -331,13 +421,80 @@ class WindTunnelView @JvmOverloads constructor(
     /**
      * Translates UI coordinates to scientific grid obstacles.
      */
-    private fun addObstacleToEngine(x: Int, y: Int, radius: Int) {
+    private fun addObstacleToEngine(x: Int, y: Int, radius: Int, permanent: Boolean) {
         hasActiveObject = true
-        when (brushShape) {
-            BrushShape.CIRCLE -> engine.addObstacle(x, y, radius)
-            BrushShape.SQUARE -> engine.addBoxObstacle(x, y, radius * 2)
-            BrushShape.NACA -> engine.addNacaAirfoil(x, y, radius * 5, nacaM, nacaP, nacaT, airfoilAoA)
+        val targetPath = if (permanent) obstaclePath else currentGrowthPath
+        
+        synchronized(targetPath) {
+            if (!permanent) targetPath.reset()
+            
+            when (brushShape) {
+                BrushShape.CIRCLE -> {
+                    engine.addObstacle(x, y, radius)
+                    targetPath.addCircle(x.toFloat(), y.toFloat(), radius.toFloat(), Path.Direction.CW)
+                }
+                BrushShape.SQUARE -> {
+                    engine.addBoxObstacle(x, y, radius * 2)
+                    targetPath.addRect(
+                        (x - radius).toFloat(), (y - radius).toFloat(),
+                        (x + radius).toFloat(), (y + radius).toFloat(), Path.Direction.CW
+                    )
+                }
+                BrushShape.NACA -> {
+                    engine.addNacaAirfoil(x, y, radius * 5, nacaM, nacaP, nacaT, airfoilAoA)
+                    targetPath.addPath(createNacaPath(x.toFloat(), y.toFloat(), radius * 5f, nacaM, nacaP, nacaT, airfoilAoA))
+                }
+            }
         }
+    }
+
+    private fun createNacaPath(cx: Float, cy: Float, chord: Float, m: Float, p: Float, t: Float, angleDegrees: Float): Path {
+        val path = Path()
+        // Positive angleDegrees = Nose Up.
+        // In Android Y-down system, this means Tail DOWN (Positive Y rotation).
+        val angleRad = Math.toRadians(angleDegrees.toDouble()).toFloat()
+        val cosA = Math.cos(angleRad.toDouble()).toFloat()
+        val sinA = Math.sin(angleRad.toDouble()).toFloat()
+
+        val steps = 80 // High resolution for professional smoothness
+        // Upper surface
+        for (i in 0..steps) {
+            val xf = i.toFloat() / steps
+            val yt = 5f * t * (0.2969f * Math.sqrt(xf.toDouble()).toFloat() - 0.1260f * xf - 0.3516f * xf * xf + 0.2843f * Math.pow(xf.toDouble(), 3.0).toFloat() - 0.1015f * Math.pow(xf.toDouble(), 4.0).toFloat())
+            var yc = 0f
+            if (p > 0.001f) {
+                yc = if (xf <= p) (m / (p * p)) * (2f * p * xf - xf * xf)
+                else (m / Math.pow((1f - p).toDouble(), 2.0).toFloat()) * ((1f - 2f * p) + 2f * p * xf - xf * xf)
+            }
+            val xLoc = xf * chord
+            // Upper edge in local space (Y is up in NACA definition)
+            // But we treat local Y as positive DOWN to match Android.
+            // So camber up means negative local Y.
+            val yLoc = -yc * chord - yt * chord
+            
+            // Standard 2D Rotation:
+            val dx = xLoc * cosA - yLoc * sinA
+            val dy = xLoc * sinA + yLoc * cosA
+            if (i == 0) path.moveTo(cx + dx, cy + dy) else path.lineTo(cx + dx, cy + dy)
+        }
+        // Lower surface
+        for (i in steps downTo 0) {
+            val xf = i.toFloat() / steps
+            val yt = 5f * t * (0.2969f * Math.sqrt(xf.toDouble()).toFloat() - 0.1260f * xf - 0.3516f * xf * xf + 0.2843f * Math.pow(xf.toDouble(), 3.0).toFloat() - 0.1015f * Math.pow(xf.toDouble(), 4.0).toFloat())
+            var yc = 0f
+            if (p > 0.001f) {
+                yc = if (xf <= p) (m / (p * p)) * (2f * p * xf - xf * xf)
+                else (m / Math.pow((1f - p).toDouble(), 2.0).toFloat()) * ((1f - 2f * p) + 2f * p * xf - xf * xf)
+            }
+            val xLoc = xf * chord
+            val yLoc = -yc * chord + yt * chord
+            
+            val dx = xLoc * cosA - yLoc * sinA
+            val dy = xLoc * sinA + yLoc * cosA
+            path.lineTo(cx + dx, cy + dy)
+        }
+        path.close()
+        return path
     }
 
     /**
@@ -417,6 +574,12 @@ class WindTunnelView @JvmOverloads constructor(
     fun reset() {
         engine.resetSimulation()
         hasActiveObject = false
+        synchronized(obstaclePath) {
+            obstaclePath.reset()
+        }
+        synchronized(currentGrowthPath) {
+            currentGrowthPath.reset()
+        }
         synchronized(forceHistory) {
             forceHistory.clear()
         }
@@ -459,6 +622,11 @@ class WindTunnelView @JvmOverloads constructor(
     fun updateBoundaryMode(mode: Int) {
         boundaryMode = mode
         engine.setBoundaryMode(mode)
+    }
+
+    fun updateLocalRefinement(enabled: Boolean) {
+        useLocalRefinement = enabled
+        engine.setLocalRefinementEnabled(enabled)
     }
 
     fun updateCoreCount(count: Int) {
