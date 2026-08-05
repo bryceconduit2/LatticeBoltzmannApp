@@ -101,7 +101,6 @@ class MainActivity : AppCompatActivity() {
         val swSmoothHD = view.findViewById<SwitchCompat>(R.id.swSmoothHD)
         val swAbsolute = view.findViewById<SwitchCompat>(R.id.swAbsolute)
         val swGridlines = view.findViewById<SwitchCompat>(R.id.swGridlines)
-        val swRefinement = view.findViewById<SwitchCompat>(R.id.swRefinement)
         val sbAoA = view.findViewById<SeekBar>(R.id.sbAoA)
         val tvAoAValue = view.findViewById<TextView>(R.id.tvAoAValue)
         val sbCores = view.findViewById<SeekBar>(R.id.sbCores)
@@ -328,11 +327,6 @@ class MainActivity : AppCompatActivity() {
             windTunnelView.showGridlines = isChecked
         }
 
-        swRefinement.isChecked = windTunnelView.useLocalRefinement
-        swRefinement.setOnCheckedChangeListener { _, isChecked ->
-            windTunnelView.updateLocalRefinement(isChecked)
-        }
-
         val maxCores = windTunnelView.getMaxAvailableCores()
         sbCores.max = maxCores - 1 
         sbCores.progress = windTunnelView.coreCount - 1
@@ -363,7 +357,6 @@ class MainActivity : AppCompatActivity() {
             windTunnelView.useAbsolutePressure = false
             windTunnelView.showDetailedTelemetry = true
             windTunnelView.useSmoothHD = true
-            windTunnelView.useLocalRefinement = false
             windTunnelView.showGridlines = false
             windTunnelView.updateCoreCount(4.coerceAtMost(maxCores))
 
@@ -388,7 +381,6 @@ class MainActivity : AppCompatActivity() {
             rgBoundary.check(R.id.rbBndPeriodic)
             swTelemetry.isChecked = true
             swSmoothHD.isChecked = true
-            swRefinement.isChecked = false
             swGridlines.isChecked = false
             sbCores.progress = (4.coerceAtMost(maxCores)) - 1
             tvCoreValue.text = (4.coerceAtMost(maxCores)).toString()

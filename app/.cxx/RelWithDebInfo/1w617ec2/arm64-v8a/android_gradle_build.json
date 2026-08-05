@@ -1,0 +1,40 @@
+{
+  "buildFiles": [
+    "C:\\Users\\bryce\\AndroidStudioProjects\\LatticeBoltzmannApp\\app\\src\\main\\cpp\\CMakeLists.txt"
+  ],
+  "cleanCommandsComponents": [
+    [
+      "C:\\Users\\bryce\\AppData\\Local\\Android\\Sdk\\cmake\\3.22.1\\bin\\ninja.exe",
+      "-C",
+      "C:\\Users\\bryce\\AndroidStudioProjects\\LatticeBoltzmannApp\\app\\.cxx\\RelWithDebInfo\\1w617ec2\\arm64-v8a",
+      "clean"
+    ]
+  ],
+  "buildTargetsCommandComponents": [
+    "C:\\Users\\bryce\\AppData\\Local\\Android\\Sdk\\cmake\\3.22.1\\bin\\ninja.exe",
+    "-C",
+    "C:\\Users\\bryce\\AndroidStudioProjects\\LatticeBoltzmannApp\\app\\.cxx\\RelWithDebInfo\\1w617ec2\\arm64-v8a",
+    "{LIST_OF_TARGETS_TO_BUILD}"
+  ],
+  "libraries": {
+    "fluidsandbox::@6890427a1f51a3e7e1df": {
+      "toolchain": "toolchain",
+      "abi": "arm64-v8a",
+      "artifactName": "fluidsandbox",
+      "output": "C:\\Users\\bryce\\AndroidStudioProjects\\LatticeBoltzmannApp\\app\\build\\intermediates\\cxx\\RelWithDebInfo\\1w617ec2\\obj\\arm64-v8a\\libfluidsandbox.so",
+      "runtimeFiles": [
+        "C:\\Users\\bryce\\AppData\\Local\\Android\\Sdk\\ndk\\28.2.13676358\\toolchains\\llvm\\prebuilt\\windows-x86_64\\lib\\clang\\19\\lib\\linux\\aarch64\\libomp.so"
+      ]
+    }
+  },
+  "toolchains": {
+    "toolchain": {
+      "cCompilerExecutable": "C:\\Users\\bryce\\AppData\\Local\\Android\\Sdk\\ndk\\28.2.13676358\\toolchains\\llvm\\prebuilt\\windows-x86_64\\bin\\clang.exe",
+      "cppCompilerExecutable": "C:\\Users\\bryce\\AppData\\Local\\Android\\Sdk\\ndk\\28.2.13676358\\toolchains\\llvm\\prebuilt\\windows-x86_64\\bin\\clang++.exe"
+    }
+  },
+  "cFileExtensions": [],
+  "cppFileExtensions": [
+    "cpp"
+  ]
+}

@@ -145,15 +145,6 @@ class NativeLBMEngine(val width: Int, val height: Int) {
         }
     }
 
-    /**
-     * Toggles advanced grid refinement around obstacles.
-     */
-    fun setLocalRefinementEnabled(enabled: Boolean) {
-        if (enginePtr != 0L) {
-            setLocalRefinementEnabledNative(enginePtr, enabled)
-        }
-    }
-
     // --- Data Retrieval Methods for Telemetry & Graphs ---
 
     fun getInletVelocity(): Float {
@@ -241,7 +232,6 @@ class NativeLBMEngine(val width: Int, val height: Int) {
     private external fun setDensityNative(ptr: Long, density: Float)
     private external fun setViscosityNative(ptr: Long, viscosity: Float)
     private external fun setDeltaTimeNative(ptr: Long, dt: Float)
-    private external fun setLocalRefinementEnabledNative(ptr: Long, enabled: Boolean)
     private external fun setVisualizationModeNative(ptr: Long, mode: Int)
     private external fun setBoundaryModeNative(ptr: Long, mode: Int)
     private external fun getInletVelocityNative(ptr: Long): Float

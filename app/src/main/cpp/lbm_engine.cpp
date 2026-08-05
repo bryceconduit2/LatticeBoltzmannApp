@@ -87,7 +87,6 @@ struct LBMEngine {
     float liftCoefficient = 0.0f;
     float smoothedCd = 0.0f;
     float smoothedCl = 0.0f;
-    bool localRefinementEnabled = false;
     int numThreads = 4;
     int activeCores = 0;
     float frontalArea = 0.0f;
@@ -103,9 +102,6 @@ struct LBMEngine {
     std::vector<uint8_t> obstacles;
     std::vector<float> linkQ[9]; // BFL: fractional distance to actual curved wall
 
-    // --- LOCAL REFINEMENT (2:1 NESTED GRID) ---
-    int roiX1, roiY1, roiX2, roiY2; // Bounds of the fine grid in Coarse units
-
     std::vector<float> velocityMag;
     std::vector<float> visualizationSource;
     std::vector<float> smoothedVelocityMag;
@@ -118,7 +114,7 @@ struct LBMEngine {
     const float weights[9] = {4.f/9, 1.f/9, 1.f/9, 1.f/9, 1.f/9, 1.f/36, 1.f/36, 1.f/36, 1.f/36};
     const int opposite[9] = {0, 3, 4, 1, 2, 7, 8, 5, 6};
 
-    LBMEngine(int w, int h) : width(w), height(h), roiX1(0), roiY1(0), roiX2(0), roiY2(0) {
+    LBMEngine(int w, int h) : width(w), height(h) {
         for (int i = 0; i < 256; i++) colorLUT[i] = heatMapColor(i / 255.0f);
         int numProcs = omp_get_num_procs();
         numThreads = (numProcs >= 8 ? 4 : numProcs);
@@ -183,23 +179,6 @@ struct LBMEngine {
         int stepMinY = height, stepMaxY = 0;
         int stepMinX = width, stepMaxX = 0;
 
-        // --- ROI DETECTION (For Local Refinement) ---
-        if (localRefinementEnabled) {
-            // Find bounding box of all obstacles
-            for (int idx = 0; idx < width * height; idx++) {
-                if (obstacles[idx]) {
-                    int x = idx % width; int y = idx / width;
-                    if (x < stepMinX) stepMinX = x; if (x > stepMaxX) stepMaxX = x;
-                    if (y < stepMinY) stepMinY = y; if (y > stepMaxY) stepMaxY = y;
-                }
-            }
-            // Add a safety margin (e.g., 15 cells)
-            roiX1 = std::max(0, stepMinX - 15);
-            roiY1 = std::max(0, stepMinY - 15);
-            roiX2 = std::min(width - 1, stepMaxX + 15);
-            roiY2 = std::min(height - 1, stepMaxY + 15);
-        }
-
         static const int CX[9] = { 0, 1, 0, -1, 0, 1, -1, -1, 1 };
         static const int CY[9] = { 0, 0, 1, 0, -1, 1, 1, -1, -1 };
 
@@ -231,6 +210,7 @@ struct LBMEngine {
 
                 // --- 1. PULL STREAMING & BOUNDARY COLLISION ---
                 float local_f[9];
+                bool touchesWall = false; // Tracks whether this fluid cell is adjacent to a wall
 
                 if (x == 0) {
                     // Inlet Boundary: Constant velocity equilibrium
@@ -265,20 +245,30 @@ struct LBMEngine {
 
                         const int srcIdx = ny * width + nx;
                         if (obs_ptr[srcIdx]) {
+                            touchesWall = true; // Mark node for boundary-layer viscosity damping
+
                             // INTERPOLATED BOUNDARY CONDITION (BFL Scheme)
-                            // Calculates exact reflection based on obstacle surface distance 'q'
                             const int dir_to_wall = opposite[i];
                             const float q = lq_ptr[dir_to_wall][idx];
                             const float fi_out = f_ptr[dir_to_wall][idx];
                             float fi_in;
 
                             if (q < 0.5f) {
-                                int nx2 = x + CX[i]; int ny2 = y + CY[i];
-                                if (nx2 < 0) nx2 = width-1; else if (nx2 >= width) nx2 = 0;
-                                if (ny2 < 0) ny2 = height-1; else if (ny2 >= height) ny2 = 0;
-                                fi_in = 2.0f * q * fi_out + (1.0f - 2.0f * q) * f_ptr[dir_to_wall][ny2 * width + nx2];
+                                int nx2 = x + CX[i];
+                                int ny2 = y + CY[i];
+                                if (nx2 < 0) nx2 = width - 1; else if (nx2 >= width) nx2 = 0;
+                                if (ny2 < 0) ny2 = height - 1; else if (ny2 >= height) ny2 = 0;
+                                const int idx2 = ny2 * width + nx2;
+
+                                // Safety check for thin geometry/trailing edges
+                                if (obs_ptr[idx2]) {
+                                    fi_in = fi_out; // Standard bounce-back fallback
+                                } else {
+                                    fi_in = 2.0f * q * fi_out + (1.0f - 2.0f * q) * f_ptr[dir_to_wall][idx2];
+                                }
                             } else {
-                                float inv2q = 1.0f / (2.0f * q);
+                                // Corrected BFL formula for q >= 0.5 using local distribution f_i[idx]
+                                const float inv2q = 1.0f / (2.0f * q);
                                 fi_in = inv2q * fi_out + (1.0f - inv2q) * f_ptr[i][idx];
                             }
                             local_f[i] = fi_in;
@@ -293,7 +283,6 @@ struct LBMEngine {
                 }
 
                 // --- 2. MACROSCOPIC MOMENTS ---
-                // Calculate Density (Rho) and Velocity (u)
                 const float rho = local_f[0] + local_f[1] + local_f[2] + local_f[3] + local_f[4] + local_f[5] + local_f[6] + local_f[7] + local_f[8];
                 const float invRho = 1.0f / fmaxf(0.1f, rho);
                 float ux = (local_f[1] - local_f[3] + local_f[5] - local_f[6] - local_f[7] + local_f[8]) * invRho;
@@ -303,8 +292,7 @@ struct LBMEngine {
                 if (vMag > 0.45f) { float s = 0.45f / vMag; ux *= s; uy *= s; vMag = 0.45f; vMag2 = 0.2025f; }
                 velocityMag[idx] = vMag;
 
-                // --- 3. COLLISION (Regularized BGK + Smagorinsky) ---
-                // Regularization filters out non-physical modes for higher stability
+                // --- 3. COLLISION (Regularized BGK + Wall-Damped Smagorinsky) ---
                 const float one_minus_15u2 = 1.0f - 1.5f * vMag2;
                 const float row_w_9 = rho * W1;
                 const float row_w_36 = rho * W2;
@@ -312,7 +300,7 @@ struct LBMEngine {
                 const float ux9 = 4.5f * ux * ux; const float uy9 = 4.5f * uy * uy;
                 const float uxy9 = 9.0f * ux * uy;
 
-                float feq[9]; // Equilibrium Distribution
+                float feq[9];
                 feq[0] = rho * W0 * one_minus_15u2;
                 feq[1] = row_w_9 * (one_minus_15u2 + ux3 + ux9);
                 feq[2] = row_w_9 * (one_minus_15u2 + uy3 + uy9);
@@ -329,28 +317,31 @@ struct LBMEngine {
                 float piyy = (local_f[2]-feq[2]) + (local_f[4]-feq[4]) + (local_f[5]-feq[5]) + (local_f[6]-feq[6]) + (local_f[7]-feq[7]) + (local_f[8]-feq[8]);
                 float pixy = (local_f[5]-feq[5]) - (local_f[6]-feq[6]) + (local_f[7]-feq[7]) - (local_f[8]-feq[8]);
 
-                // Smagorinsky LES: Adjusts viscosity based on local turbulence intensity
+                // Damp Smagorinsky coefficient to 0 at wall-adjacent cells to eliminate artificial viscosity spikes
+                const float localSmagCoeff = touchesWall ? 0.0f : smagCoeff;
+
                 const float S = sqrtf(pixx * pixx + 2.0f * pixy * pixy + piyy * piyy) * invRho * inv2cs2;
-                const float tau_eff = tau_0 + 0.5f * (sqrtf(tau_0 * tau_0 + smagCoeff * S) - tau_0);
+                const float tau_eff = tau_0 + 0.5f * (sqrtf(tau_0 * tau_0 + localSmagCoeff * S) - tau_0);
                 const float one_minus_invTau = 1.0f - (1.0f / fmaxf(tau_eff, 0.501f));
                 const float common_reg = one_minus_invTau * regFactor;
 
                 const float reg_pixx = common_reg * (pixx * (1.0f - cs2) + piyy * (0.0f - cs2));
                 const float reg_piyy = common_reg * (pixx * (0.0f - cs2) + piyy * (1.0f - cs2));
                 const float reg_pixy = common_reg * 2.0f * pixy;
+                const float reg_diag = 2.0f * (reg_pixx + reg_piyy);
 
-                // FINAL COLLISION STEP: Store result in fNew
+                // FINAL COLLISION STEP: Store result in fn_ptr
                 fn_ptr[0][idx] = feq[0] + W0 * common_reg * (-cs2 * (pixx + piyy));
                 fn_ptr[1][idx] = feq[1] + W1 * reg_pixx;
                 fn_ptr[2][idx] = feq[2] + W1 * reg_piyy;
                 fn_ptr[3][idx] = feq[3] + W1 * reg_pixx;
                 fn_ptr[4][idx] = feq[4] + W1 * reg_piyy;
-                fn_ptr[5][idx] = feq[5] + W2 * (reg_pixx + reg_pixy + reg_piyy);
-                fn_ptr[6][idx] = feq[6] + W2 * (reg_pixx - reg_pixy + reg_piyy);
-                fn_ptr[7][idx] = feq[7] + W2 * (reg_pixx + reg_pixy + reg_piyy);
-                fn_ptr[8][idx] = feq[8] + W2 * (reg_pixx - reg_pixy + reg_piyy);
+                fn_ptr[5][idx] = feq[5] + W2 * (reg_diag + reg_pixy);
+                fn_ptr[6][idx] = feq[6] + W2 * (reg_diag - reg_pixy);
+                fn_ptr[7][idx] = feq[7] + W2 * (reg_diag + reg_pixy);
+                fn_ptr[8][idx] = feq[8] + W2 * (reg_diag - reg_pixy);
 
-                // Numerical Safety: Check for NaN divergence
+                // Numerical Safety
                 if (std::isnan(fn_ptr[0][idx])) { for(int i=0; i<9; i++) fn_ptr[i][idx] = weights[i]; }
 
                 // --- DATA PREPARATION FOR VISUALIZATION ---
@@ -366,46 +357,42 @@ struct LBMEngine {
         if (stepMaxY >= stepMinY) frontalArea = static_cast<float>(stepMaxY - stepMinY + 1) * dx; else frontalArea = 0.0f;
         if (stepMaxX >= stepMinX) horizontalSpan = static_cast<float>(stepMaxX - stepMinX + 1) * dx; else horizontalSpan = 0.0f;
 
-        // --- LOCAL REFINEMENT SUB-STEPPING ---
-        // (Simplified Refined Solver for ROI)
-        if (localRefinementEnabled && (stepMaxX >= stepMinX)) {
-            // For now, we perform an additional 'High Accuracy' pass on the coarse nodes in the ROI
-            // This increases the effective convergence rate for boundary layers.
-            #pragma omp parallel for schedule(static) shared(f_ptr, fn_ptr, obs_ptr, weights, tau_0, regFactor) num_threads(numThreads)
-            for (int y = roiY1; y <= roiY2; y++) {
-                for (int x = roiX1; x <= roiX2; x++) {
-                    int idx = y * width + x;
-                    if (obs_ptr[idx]) continue;
-
-                    // Sample current macroscopic moments for the ROI node
-                    float rho_roi = 0;
-                    for(int i=0; i<9; i++) rho_roi += f_ptr[i][idx];
-                    float invRho_roi = 1.0f / fmaxf(0.1f, rho_roi);
-                    float ux_roi = (f_ptr[1][idx] - f_ptr[3][idx] + f_ptr[5][idx] - f_ptr[6][idx] - f_ptr[7][idx] + f_ptr[8][idx]) * invRho_roi;
-                    float uy_roi = (f_ptr[2][idx] - f_ptr[4][idx] + f_ptr[5][idx] + f_ptr[6][idx] - f_ptr[7][idx] - f_ptr[8][idx]) * invRho_roi;
-
-                    // Run a second relaxation cycle to tighten boundary stability
-                    float usqr_roi = 1.5f * (ux_roi * ux_roi + uy_roi * uy_roi);
-                    for (int i = 0; i < 9; i++) {
-                        float cu = 3.0f * (cxs[i] * ux_roi + cys[i] * uy_roi);
-                        float feq_i = weights[i] * rho_roi * (1.0f + cu + 0.5f * cu * cu - usqr_roi);
-                        // Blend current state with equilibrium again (Double relaxation)
-                        f_ptr[i][idx] = f_ptr[i][idx] * 0.9f + feq_i * 0.1f;
-                    }
-                }
-            }
-        }
-
-        // Finalize Time Step: Swap grid buffers
+        // Swap grid buffers
         for (int i = 0; i < 9; i++) f[i].swap(fNew[i]);
         return {(float)totalForceX, -(float)totalForceY};
     }
 };
 
+/**
+ * Helper to update aerodynamic coefficients in the engine state.
+ */
+void updateAerodynamics(LBMEngine* e, double dragAcc, double liftAcc, int steps) {
+    if (steps <= 0) return;
+    float avgD = static_cast<float>(dragAcc / steps);
+    float avgL = static_cast<float>(liftAcc / steps);
+    float conv = e->rhoAir * (e->dx * e->dx * e->dx) / (e->dt * e->dt);
+    e->dragForceNewtons = fabsf(avgD) * conv;
+    e->liftForceNewtons = avgL * conv;
+    float uL = e->uInlet;
+    float refL = fmaxf(e->frontalArea, e->horizontalSpan) / e->dx;
+    float dynP = 0.5f * (uL * uL);
+    if (uL > 0.001f && refL > 0.5f) {
+        float instantCd = fabsf(avgD) / (dynP * refL);
+        float instantCl = avgL / (dynP * refL);
+        e->dragCoefficient = instantCd;
+        e->liftCoefficient = instantCl;
+        e->smoothedCd = e->smoothedCd * 0.98f + instantCd * 0.02f;
+        e->smoothedCl = e->smoothedCl * 0.98f + instantCl * 0.02f;
+    } else {
+        e->dragCoefficient = 0; e->liftCoefficient = 0;
+        e->smoothedCd = 0; e->smoothedCl = 0;
+    }
+}
+
 // --- JNI INTERFACE (Bridging C++ to Kotlin) ---
 
 extern "C" JNIEXPORT jlong JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_initEngine(JNIEnv *env, jobject thiz, jint width, jint height) {
-    return (jlong)(uintptr_t)new LBMEngine(width, height);
+    return static_cast<jlong>(reinterpret_cast<uintptr_t>(new LBMEngine(width, height)));
 }
 extern "C" JNIEXPORT void JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_destroyEngine(JNIEnv *env, jobject thiz, jlong ptr) {
     delete reinterpret_cast<LBMEngine*>(ptr);
@@ -416,7 +403,8 @@ extern "C" JNIEXPORT void JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_destr
  * Also computes BFL 'q' values for smooth boundary reflection.
  */
 extern "C" JNIEXPORT void JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_addObstacleNative(JNIEnv *env, jobject thiz, jlong ptr, jint cx, jint cy, jint radius) {
-    auto* e = reinterpret_cast<LBMEngine*>(ptr); int r2 = radius * radius; float R = (float)radius;
+    auto* e = reinterpret_cast<LBMEngine*>(ptr); int r2 = radius * radius;
+    float R = static_cast<float>(radius);
     for (int y = std::max(0, cy - radius); y <= std::min(e->height - 1, cy + radius); y++)
         for (int x = std::max(0, cx - radius); x <= std::min(e->width - 1, cx + radius); x++)
             if ((x - cx) * (x - cx) + (y - cy) * (y - cy) <= r2) e->obstacles[y * e->width + x] = 1;
@@ -469,7 +457,8 @@ extern "C" JNIEXPORT void JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_addNa
     // In Android Y-down space, a positive rotation angleDegrees tilts the tail DOWN (Nose Up).
     // The sampling logic below uses [cos sin; -sin cos] which is a coordinate rotation of -angleRad.
     // This is equivalent to an object rotation of +angleRad.
-    float angleRad = angleDegrees * (M_PI / 180.0f); float cosA = cosf(angleRad); float sinA = sinf(angleRad);
+    float angleRad = angleDegrees * static_cast<float>(M_PI / 180.0);
+    float cosA = cosf(angleRad); float sinA = sinf(angleRad);
     int pad = chord / 2; int x_min = std::max(0, cx - pad); int x_max = std::min(e->width - 1, cx + chord + pad);
     int y_min = std::max(0, cy - chord); int y_max = std::min(e->height - 1, cy + chord);
     for (int py = y_min; py <= y_max; py++) {
@@ -484,7 +473,8 @@ extern "C" JNIEXPORT void JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_addNa
                     if (x_f <= p) yc = (m / (p * p)) * (2.0f * p * x_f - x_f * x_f);
                     else yc = (m / powf(1.0f - p, 2)) * ((1.0f - 2.0f * p) + 2.0f * p * x_f - x_f * x_f);
                 }
-                if (fabsf(y_loc + yc * chord) <= yt * chord) e->obstacles[py * e->width + px] = 1;
+                float fChord = static_cast<float>(chord);
+                if (fabsf(y_loc + yc * fChord) <= yt * fChord) e->obstacles[py * e->width + px] = 1;
             }
         }
     }
@@ -503,9 +493,7 @@ extern "C" JNIEXPORT void JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_setDe
 extern "C" JNIEXPORT void JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_setViscosityNative(JNIEnv *env, jobject thiz, jlong ptr, jfloat v) { reinterpret_cast<LBMEngine*>(ptr)->nuAir = v; }
 extern "C" JNIEXPORT void JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_setDeltaTimeNative(JNIEnv *env, jobject thiz, jlong ptr, jfloat dt) { reinterpret_cast<LBMEngine*>(ptr)->dt = dt; }
 
-extern "C" JNIEXPORT void JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_setLocalRefinementEnabledNative(JNIEnv *env, jobject thiz, jlong ptr, jboolean enabled) {
-    reinterpret_cast<LBMEngine*>(ptr)->localRefinementEnabled = (bool)enabled;
-}
+
 
 /**
  * Headless Simulation Step: Used for high-speed background computations.
@@ -516,27 +504,10 @@ extern "C" JNIEXPORT void JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_stepN
     double dragAcc = 0.0; double liftAcc = 0.0;
     for (int i = 0; i < steps; i++) {
         ForceResult res = e->step();
-        dragAcc += (double)res.drag;
-        liftAcc += (double)res.lift;
+        dragAcc += static_cast<double>(res.drag);
+        liftAcc += static_cast<double>(res.lift);
     }
-    if (steps > 0) {
-        float avgD = (float)(dragAcc / steps); float avgL = (float)(liftAcc / steps);
-        float conv = e->rhoAir * (e->dx * e->dx * e->dx) / (e->dt * e->dt);
-        e->dragForceNewtons = fabsf(avgD) * conv; e->liftForceNewtons = avgL * conv;
-        float uL = e->uInlet; float refL = fmaxf(e->frontalArea, e->horizontalSpan) / e->dx;
-        float dynP = 0.5f * (uL * uL);
-        if (uL > 0.001f && refL > 0.5f) {
-            float instantCd = fabsf(avgD) / (dynP * refL);
-            float instantCl = avgL / (dynP * refL);
-            e->dragCoefficient = instantCd;
-            e->liftCoefficient = instantCl;
-            e->smoothedCd = e->smoothedCd * 0.98f + instantCd * 0.02f;
-            e->smoothedCl = e->smoothedCl * 0.98f + instantCl * 0.02f;
-        } else {
-            e->dragCoefficient = 0; e->liftCoefficient = 0;
-            e->smoothedCd = 0; e->smoothedCl = 0;
-        }
-    }
+    updateAerodynamics(e, dragAcc, liftAcc, steps);
 }
 
 /**
@@ -544,30 +515,18 @@ extern "C" JNIEXPORT void JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_stepN
  * Executes simulation and maps the result to the Android Bitmap in one JNI pass.
  */
 extern "C" JNIEXPORT void JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_stepAndRenderNative(JNIEnv *env, jobject thiz, jlong ptr, jobject bitmap, jint steps, jboolean drawBlack) {
-    auto* e = reinterpret_cast<LBMEngine*>(ptr); double dragAcc = 0.0; double liftAcc = 0.0;
+    auto* e = reinterpret_cast<LBMEngine*>(ptr);
+    double dragAcc = 0.0; double liftAcc = 0.0;
 
     // 1. EXECUTE PHYSICS
-    for (int i = 0; i < steps; i++) { ForceResult res = e->step(); dragAcc += (double)res.drag; liftAcc += (double)res.lift; }
+    for (int i = 0; i < steps; i++) {
+        ForceResult res = e->step();
+        dragAcc += static_cast<double>(res.drag);
+        liftAcc += static_cast<double>(res.lift);
+    }
 
     // 2. POST-PROCESS AERODYNAMIC COEFFICIENTS
-    if (steps > 0) {
-        float avgD = (float)(dragAcc / steps); float avgL = (float)(liftAcc / steps);
-        float conv = e->rhoAir * (e->dx * e->dx * e->dx) / (e->dt * e->dt);
-        e->dragForceNewtons = fabsf(avgD) * conv; e->liftForceNewtons = avgL * conv;
-        float uL = e->uInlet;        float refL = fmaxf(e->frontalArea, e->horizontalSpan) / e->dx;
-        float dynP = 0.5f * (uL * uL);
-        if (uL > 0.001f && refL > 0.5f) {
-            float instantCd = fabsf(avgD) / (dynP * refL);
-            float instantCl = avgL / (dynP * refL);
-            e->dragCoefficient = instantCd;
-            e->liftCoefficient = instantCl;
-            e->smoothedCd = e->smoothedCd * 0.98f + instantCd * 0.02f;
-            e->smoothedCl = e->smoothedCl * 0.98f + instantCl * 0.02f;
-        } else {
-            e->dragCoefficient = 0; e->liftCoefficient = 0;
-            e->smoothedCd = 0; e->smoothedCl = 0;
-        }
-    }
+    updateAerodynamics(e, dragAcc, liftAcc, steps);
 
     // 3. RENDER DIRECTLY TO BITMAP PIXELS
     void* pixels; if (AndroidBitmap_lockPixels(env, bitmap, &pixels) < 0) return;

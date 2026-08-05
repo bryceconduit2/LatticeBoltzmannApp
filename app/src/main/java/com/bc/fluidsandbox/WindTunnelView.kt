@@ -70,7 +70,6 @@ class WindTunnelView @JvmOverloads constructor(
     var useAbsolutePressure = false
     var coreCount = 4
     var simulationDtScale = 1.0f
-    var useLocalRefinement = false
 
     // Vector Graphics Overlay
     private val obstaclePath = Path()
@@ -251,7 +250,6 @@ class WindTunnelView @JvmOverloads constructor(
                 engine.setVisualizationMode(visualizationMode)
                 engine.setBoundaryMode(boundaryMode)
                 engine.setNumThreads(coreCount)
-                engine.setLocalRefinementEnabled(useLocalRefinement)
                 
                 pendingReinit = null
             }
@@ -622,11 +620,6 @@ class WindTunnelView @JvmOverloads constructor(
     fun updateBoundaryMode(mode: Int) {
         boundaryMode = mode
         engine.setBoundaryMode(mode)
-    }
-
-    fun updateLocalRefinement(enabled: Boolean) {
-        useLocalRefinement = enabled
-        engine.setLocalRefinementEnabled(enabled)
     }
 
     fun updateCoreCount(count: Int) {

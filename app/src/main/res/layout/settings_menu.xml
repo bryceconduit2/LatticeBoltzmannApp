@@ -442,13 +442,6 @@
             android:text="@string/sw_gridlines"
             android:textColor="@android:color/white" />
 
-        <androidx.appcompat.widget.SwitchCompat
-            android:id="@+id/swRefinement"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/sw_local_refinement"
-            android:textColor="@android:color/white" />
-
         <Space
             android:layout_width="match_parent"
             android:layout_height="16dp" />
