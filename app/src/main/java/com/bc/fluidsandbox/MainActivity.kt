@@ -97,6 +97,7 @@ class MainActivity : AppCompatActivity() {
         val tvBrushSizeValue = view.findViewById<TextView>(R.id.tvBrushSizeValue)
         val rgViz = view.findViewById<RadioGroup>(R.id.rgViz)
         val rgBoundary = view.findViewById<RadioGroup>(R.id.rgBoundary)
+        val rgColorScheme = view.findViewById<RadioGroup>(R.id.rgColorScheme)
         val swTelemetry = view.findViewById<SwitchCompat>(R.id.swTelemetry)
         val swSmoothHD = view.findViewById<SwitchCompat>(R.id.swSmoothHD)
         val swAbsolute = view.findViewById<SwitchCompat>(R.id.swAbsolute)
@@ -169,6 +170,13 @@ class MainActivity : AppCompatActivity() {
             NativeLBMEngine.BND_FREE_SLIP -> rgBoundary.check(R.id.rbBndFreeSlip)
         }
 
+        when (windTunnelView.colorScheme) {
+            0 -> rgColorScheme.check(R.id.rbColorStandard)
+            1 -> rgColorScheme.check(R.id.rbColorIronbow)
+            2 -> rgColorScheme.check(R.id.rbColorGrayscale)
+            3 -> rgColorScheme.check(R.id.rbColorOcean)
+        }
+
         when (windTunnelView.brushShape) {
             WindTunnelView.BrushShape.CIRCLE -> rgShape.check(R.id.rbCircle)
             WindTunnelView.BrushShape.SQUARE -> rgShape.check(R.id.rbSquare)
@@ -198,9 +206,21 @@ class MainActivity : AppCompatActivity() {
                 R.id.rbBndPeriodic -> NativeLBMEngine.BND_PERIODIC
                 R.id.rbBndNoSlip -> NativeLBMEngine.BND_NO_SLIP
                 R.id.rbBndFreeSlip -> NativeLBMEngine.BND_FREE_SLIP
+                R.id.rbBndOpen -> NativeLBMEngine.BND_OPEN
                 else -> NativeLBMEngine.BND_PERIODIC
             }
             windTunnelView.updateBoundaryMode(mode)
+        }
+
+        rgColorScheme.setOnCheckedChangeListener { _, checkedId ->
+            val scheme = when (checkedId) {
+                R.id.rbColorStandard -> 0
+                R.id.rbColorIronbow -> 1
+                R.id.rbColorGrayscale -> 2
+                R.id.rbColorOcean -> 3
+                else -> 0
+            }
+            windTunnelView.updateColorScheme(scheme)
         }
 
         rgSize.setOnCheckedChangeListener { _, checkedId ->
@@ -354,6 +374,7 @@ class MainActivity : AppCompatActivity() {
             windTunnelView.airfoilAoA = 0.0f
             windTunnelView.updateVisualizationMode(NativeLBMEngine.VIZ_VELOCITY)
             windTunnelView.updateBoundaryMode(NativeLBMEngine.BND_PERIODIC)
+            windTunnelView.updateColorScheme(0)
             windTunnelView.useAbsolutePressure = false
             windTunnelView.showDetailedTelemetry = true
             windTunnelView.useSmoothHD = true
@@ -379,6 +400,7 @@ class MainActivity : AppCompatActivity() {
             rgViz.check(R.id.rbVizVelocity)
             swAbsolute.isChecked = false
             rgBoundary.check(R.id.rbBndPeriodic)
+            rgColorScheme.check(R.id.rbColorStandard)
             swTelemetry.isChecked = true
             swSmoothHD.isChecked = true
             swGridlines.isChecked = false

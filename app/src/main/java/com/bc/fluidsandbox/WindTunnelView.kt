@@ -67,6 +67,7 @@ class WindTunnelView @JvmOverloads constructor(
     var airfoilAoA = 0.0f
     var visualizationMode = NativeLBMEngine.VIZ_VELOCITY
     var boundaryMode = NativeLBMEngine.BND_PERIODIC
+    var colorScheme = 0
     var useAbsolutePressure = false
     var coreCount = 4
     var simulationDtScale = 1.0f
@@ -143,13 +144,26 @@ class WindTunnelView @JvmOverloads constructor(
         setShadowLayer(2f, 1f, 1f, Color.BLACK)
     }
 
-    // Gradient colors for the velocity scale bar
-    private val scaleColors = intArrayOf(
-        Color.BLUE, Color.CYAN, Color.GREEN, Color.YELLOW, Color.RED
-    )
-    private val scalePositions = floatArrayOf(
-        0.0f, 0.25f, 0.5f, 0.75f, 1.0f
-    )
+    // Gradient settings for the scale bar
+    private fun getScaleColors(scheme: Int): IntArray {
+        return when (scheme) {
+            0 -> intArrayOf(Color.BLUE, Color.CYAN, Color.GREEN, Color.YELLOW, Color.RED)
+            1 -> intArrayOf(Color.BLACK, Color.RED, Color.YELLOW, Color.WHITE)
+            2 -> intArrayOf(Color.BLACK, Color.WHITE)
+            3 -> intArrayOf(Color.BLACK, Color.BLUE, Color.CYAN, Color.WHITE)
+            else -> intArrayOf(Color.BLUE, Color.CYAN, Color.GREEN, Color.YELLOW, Color.RED)
+        }
+    }
+
+    private fun getScalePositions(scheme: Int): FloatArray? {
+        return when (scheme) {
+            0 -> floatArrayOf(0.0f, 0.25f, 0.5f, 0.75f, 1.0f)
+            1 -> floatArrayOf(0.0f, 0.33f, 0.66f, 1.0f)
+            2 -> null
+            3 -> floatArrayOf(0.0f, 0.2f, 0.66f, 1.0f)
+            else -> floatArrayOf(0.0f, 0.25f, 0.5f, 0.75f, 1.0f)
+        }
+    }
 
     init {
         holder.addCallback(this)
@@ -249,6 +263,7 @@ class WindTunnelView @JvmOverloads constructor(
                 engine.setViscosity(currentPhysViscosity)
                 engine.setVisualizationMode(visualizationMode)
                 engine.setBoundaryMode(boundaryMode)
+                engine.setColorScheme(colorScheme)
                 engine.setNumThreads(coreCount)
                 
                 pendingReinit = null
@@ -315,9 +330,10 @@ class WindTunnelView @JvmOverloads constructor(
             val liftN = engine.getLiftForce()
             val cd = engine.getInstantDragCoefficient()
             val cl = engine.getInstantLiftCoefficient()
+            val isValid = engine.isAerodynamicsValid()
             
             synchronized(forceHistory) {
-                forceHistory.add(ForceGraphView.ForcePoint(elapsedSec, dragN, liftN, cd, cl))
+                forceHistory.add(ForceGraphView.ForcePoint(elapsedSec, dragN, liftN, cd, cl, isValid))
                 if (forceHistory.size > maxHistorySize) {
                     forceHistory.removeAt(0)
                 }
@@ -380,14 +396,21 @@ class WindTunnelView @JvmOverloads constructor(
                 val dragCd = engine.getDragCoefficient()
                 val liftN_hud = engine.getLiftForce()
                 val liftCl = engine.getLiftCoefficient()
+                val isValid = engine.isAerodynamicsValid()
                 val elapsedSeconds = engine.getTotalSteps() * 0.000005f
                 
                 val telemetryPadding = dpToPx(24f)
                 val telemetrySpacing = dpToPx(22f)
                 
                 canvas.drawText(String.format(Locale.US, "Velocity: %.1f m/s | Time: %.2fs", currentVel, elapsedSeconds), telemetryPadding, telemetryPadding * 1.5f, textPaint)
-                canvas.drawText(String.format(Locale.US, "Drag: %.1f N | Cd: %.2f", dragN_hud, dragCd), telemetryPadding, telemetryPadding * 1.5f + telemetrySpacing, textPaint)
-                canvas.drawText(String.format(Locale.US, "Lift: %.1f N | Cl: %.2f", liftN_hud, liftCl), telemetryPadding, telemetryPadding * 1.5f + telemetrySpacing * 2f, textPaint)
+                
+                if (isValid) {
+                    canvas.drawText(String.format(Locale.US, "Drag: %.1f N | Cd: %.2f", dragN_hud, dragCd), telemetryPadding, telemetryPadding * 1.5f + telemetrySpacing, textPaint)
+                    canvas.drawText(String.format(Locale.US, "Lift: %.1f N | Cl: %.2f", liftN_hud, liftCl), telemetryPadding, telemetryPadding * 1.5f + telemetrySpacing * 2f, textPaint)
+                } else {
+                    canvas.drawText("Drag: N/A (Touching Boundary)", telemetryPadding, telemetryPadding * 1.5f + telemetrySpacing, textPaint)
+                    canvas.drawText("Lift: N/A (Touching Boundary)", telemetryPadding, telemetryPadding * 1.5f + telemetrySpacing * 2f, textPaint)
+                }
                 
                 // ADVANCED REYNOLDS CALCULATION (Dynamic Span)
                 val dx = engine.getDX()
@@ -458,37 +481,64 @@ class WindTunnelView @JvmOverloads constructor(
         // Upper surface
         for (i in 0..steps) {
             val xf = i.toFloat() / steps
-            val yt = 5f * t * (0.2969f * Math.sqrt(xf.toDouble()).toFloat() - 0.1260f * xf - 0.3516f * xf * xf + 0.2843f * Math.pow(xf.toDouble(), 3.0).toFloat() - 0.1015f * Math.pow(xf.toDouble(), 4.0).toFloat())
+            val yt = 5f * t * (0.2969f * Math.sqrt(xf.toDouble()).toFloat() - 0.1260f * xf - 0.3516f * xf * xf + 0.2843f * Math.pow(xf.toDouble(), 3.0).toFloat() - 0.1036f * Math.pow(xf.toDouble(), 4.0).toFloat())
             var yc = 0f
+            var dyc_dx = 0f
             if (p > 0.001f) {
-                yc = if (xf <= p) (m / (p * p)) * (2f * p * xf - xf * xf)
-                else (m / Math.pow((1f - p).toDouble(), 2.0).toFloat()) * ((1f - 2f * p) + 2f * p * xf - xf * xf)
+                if (xf <= p) {
+                    yc = (m / (p * p)) * (2f * p * xf - xf * xf)
+                    dyc_dx = (2f * m / (p * p)) * (p - xf)
+                } else {
+                    val one_m_p_sq = (1f - p) * (1f - p)
+                    yc = (m / one_m_p_sq) * ((1f - 2f * p) + 2f * p * xf - xf * xf)
+                    dyc_dx = (2f * m / one_m_p_sq) * (p - xf)
+                }
             }
+
+            val theta = Math.atan(dyc_dx.toDouble()).toFloat()
+            val cosT = Math.cos(theta.toDouble()).toFloat()
+            val sinT = Math.sin(theta.toDouble()).toFloat()
+
             val xLoc = xf * chord
-            // Upper edge in local space (Y is up in NACA definition)
-            // But we treat local Y as positive DOWN to match Android.
-            // So camber up means negative local Y.
-            val yLoc = -yc * chord - yt * chord
+            // Perpendicular thickness definition
+            // Upper: xc - yt*sinT, yc + yt*cosT
+            val px_l = xLoc - yt * chord * sinT
+            val py_l = -yc * chord - yt * chord * cosT
             
-            // Standard 2D Rotation:
-            val dx = xLoc * cosA - yLoc * sinA
-            val dy = xLoc * sinA + yLoc * cosA
+            // Rotate local point by wing AoA
+            val dx = px_l * cosA - py_l * sinA
+            val dy = px_l * sinA + py_l * cosA
             if (i == 0) path.moveTo(cx + dx, cy + dy) else path.lineTo(cx + dx, cy + dy)
         }
         // Lower surface
         for (i in steps downTo 0) {
             val xf = i.toFloat() / steps
-            val yt = 5f * t * (0.2969f * Math.sqrt(xf.toDouble()).toFloat() - 0.1260f * xf - 0.3516f * xf * xf + 0.2843f * Math.pow(xf.toDouble(), 3.0).toFloat() - 0.1015f * Math.pow(xf.toDouble(), 4.0).toFloat())
+            val yt = 5f * t * (0.2969f * Math.sqrt(xf.toDouble()).toFloat() - 0.1260f * xf - 0.3516f * xf * xf + 0.2843f * Math.pow(xf.toDouble(), 3.0).toFloat() - 0.1036f * Math.pow(xf.toDouble(), 4.0).toFloat())
             var yc = 0f
+            var dyc_dx = 0f
             if (p > 0.001f) {
-                yc = if (xf <= p) (m / (p * p)) * (2f * p * xf - xf * xf)
-                else (m / Math.pow((1f - p).toDouble(), 2.0).toFloat()) * ((1f - 2f * p) + 2f * p * xf - xf * xf)
+                if (xf <= p) {
+                    yc = (m / (p * p)) * (2f * p * xf - xf * xf)
+                    dyc_dx = (2f * m / (p * p)) * (p - xf)
+                } else {
+                    val one_m_p_sq = (1f - p) * (1f - p)
+                    yc = (m / one_m_p_sq) * ((1f - 2f * p) + 2f * p * xf - xf * xf)
+                    dyc_dx = (2f * m / one_m_p_sq) * (p - xf)
+                }
             }
+
+            val theta = Math.atan(dyc_dx.toDouble()).toFloat()
+            val cosT = Math.cos(theta.toDouble()).toFloat()
+            val sinT = Math.sin(theta.toDouble()).toFloat()
+
             val xLoc = xf * chord
-            val yLoc = -yc * chord + yt * chord
+            // Perpendicular thickness definition
+            // Lower: xc + yt*sinT, yc - yt*cosT
+            val px_l = xLoc + yt * chord * sinT
+            val py_l = -yc * chord + yt * chord * cosT
             
-            val dx = xLoc * cosA - yLoc * sinA
-            val dy = xLoc * sinA + yLoc * cosA
+            val dx = px_l * cosA - py_l * sinA
+            val dy = px_l * sinA + py_l * cosA
             path.lineTo(cx + dx, cy + dy)
         }
         path.close()
@@ -511,7 +561,7 @@ class WindTunnelView @JvmOverloads constructor(
         if (scalePaint.shader == null) {
             scalePaint.shader = LinearGradient(
                 left, 0f, right, 0f,
-                scaleColors, scalePositions, Shader.TileMode.CLAMP
+                getScaleColors(colorScheme), getScalePositions(colorScheme), Shader.TileMode.CLAMP
             )
         }
 
@@ -620,6 +670,12 @@ class WindTunnelView @JvmOverloads constructor(
     fun updateBoundaryMode(mode: Int) {
         boundaryMode = mode
         engine.setBoundaryMode(mode)
+    }
+
+    fun updateColorScheme(scheme: Int) {
+        colorScheme = scheme
+        engine.setColorScheme(scheme)
+        scalePaint.shader = null // Force re-creation of gradient with new colors
     }
 
     fun updateCoreCount(count: Int) {

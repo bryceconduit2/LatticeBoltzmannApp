@@ -37,17 +37,36 @@ const float W1 = 1.0f/9.0f;
 const float W2 = 1.0f/36.0f;
 
 /**
- * Fast Heatmap Color Mapper.
- * Maps normalized fluid property (0.0 to 1.0) to a high-contrast temperature scale.
- * Colors: Blue (Slow) -> Cyan -> Green -> Yellow -> Red (Fast)
+ * Color Scheme Mapper.
+ * Maps normalized fluid property (0.0 to 1.0) to various high-contrast scales.
  */
-inline uint32_t heatMapColor(float value) {
+inline uint32_t mapColor(float value, int scheme) {
     value = fmaxf(0.0f, fminf(1.0f, value));
-    float r, g, b;
-    if (value < 0.25f) { r = 0.0f; g = 4.0f * value; b = 1.0f; }
-    else if (value < 0.5f) { r = 0.0f; g = 1.0f; b = 1.0f - 4.0f * (value - 0.25f); }
-    else if (value < 0.75f) { r = 4.0f * (value - 0.5f); g = 1.0f; b = 0.0f; }
-    else { r = 1.0f; g = 1.0f - 4.0f * (value - 0.75f); b = 0.0f; }
+    float r = 0.0f, g = 0.0f, b = 0.0f;
+
+    switch (scheme) {
+        case 0: // Standard (Jet)
+            if (value < 0.25f) { r = 0.0f; g = 4.0f * value; b = 1.0f; }
+            else if (value < 0.5f) { r = 0.0f; g = 1.0f; b = 1.0f - 4.0f * (value - 0.25f); }
+            else if (value < 0.75f) { r = 4.0f * (value - 0.5f); g = 1.0f; b = 0.0f; }
+            else { r = 1.0f; g = 1.0f - 4.0f * (value - 0.75f); b = 0.0f; }
+            break;
+        case 1: // Ironbow (Heat)
+            r = fminf(1.0f, value * 3.0f);
+            g = fmaxf(0.0f, fminf(1.0f, (value - 0.3f) * 3.0f));
+            b = fmaxf(0.0f, fminf(1.0f, (value - 0.7f) * 3.0f));
+            break;
+        case 2: // Grayscale
+            r = g = b = value;
+            break;
+        case 3: // Biolume (Ocean)
+            r = fmaxf(0.0f, (value - 0.7f) * 3.3f);
+            g = fmaxf(0.0f, fminf(1.0f, value * 1.5f));
+            b = fminf(1.0f, value * 5.0f);
+            break;
+        default:
+            r = g = b = value;
+    }
     // Android Bitmap ARGB_8888 (Little Endian: 0xAABBGGRR)
     return 0xFF000000 | (static_cast<uint32_t>(b * 255.0f) << 16) | (static_cast<uint32_t>(g * 255.0f) << 8) | static_cast<uint32_t>(r * 255.0f);
 }
@@ -66,7 +85,7 @@ struct ForceResult {
  */
 struct LBMEngine {
     enum VisualizationMode { VELOCITY = 0, PRESSURE = 1, TOTAL_PRESSURE = 2 };
-    enum BoundaryMode { PERIODIC = 0, NO_SLIP = 1, FREE_SLIP = 2 };
+    enum BoundaryMode { PERIODIC = 0, NO_SLIP = 1, FREE_SLIP = 2, OPEN = 3 };
 
     int width, height;
     float uInlet = 0.06f;       // Current inlet velocity in lattice units
@@ -92,9 +111,11 @@ struct LBMEngine {
     float frontalArea = 0.0f;
     float horizontalSpan = 0.0f;
     unsigned long long totalSteps = 0;
+    bool aeroValid = true;
 
     VisualizationMode vizMode = VELOCITY;
     BoundaryMode boundaryMode = PERIODIC;
+    int colorScheme = 0;
 
     // Distribution functions (Stored as Structure-of-Arrays for SIMD optimization)
     std::vector<float> f[9];
@@ -102,6 +123,7 @@ struct LBMEngine {
     std::vector<uint8_t> obstacles;
     std::vector<float> linkQ[9]; // BFL: fractional distance to actual curved wall
 
+    std::vector<float> ux_flow, uy_flow;
     std::vector<float> velocityMag;
     std::vector<float> visualizationSource;
     std::vector<float> smoothedVelocityMag;
@@ -115,7 +137,7 @@ struct LBMEngine {
     const int opposite[9] = {0, 3, 4, 1, 2, 7, 8, 5, 6};
 
     LBMEngine(int w, int h) : width(w), height(h) {
-        for (int i = 0; i < 256; i++) colorLUT[i] = heatMapColor(i / 255.0f);
+        updateColorLUT(0);
         int numProcs = omp_get_num_procs();
         numThreads = (numProcs >= 8 ? 4 : numProcs);
         int size = width * height;
@@ -125,6 +147,8 @@ struct LBMEngine {
             linkQ[i].resize(size, 0.5f);
         }
         obstacles.resize(size, 0);
+        ux_flow.resize(size, 0.0f);
+        uy_flow.resize(size, 0.0f);
         velocityMag.resize(size, 0.0f);
         visualizationSource.resize(size, 0.0f);
         smoothedVelocityMag.resize(size, 0.0f);
@@ -137,6 +161,8 @@ struct LBMEngine {
     void initFluid(float velocity) {
         float usqr = 1.5f * (velocity * velocity);
         for (int idx = 0; idx < width * height; idx++) {
+            ux_flow[idx] = velocity;
+            uy_flow[idx] = 0;
             for (int i = 0; i < 9; i++) {
                 float cu = 3.0f * (cxs[i] * velocity);
                 f[i][idx] = weights[i] * (1.0f + cu + 0.5f * cu * cu - usqr);
@@ -148,12 +174,17 @@ struct LBMEngine {
     void reset() {
         std::fill(obstacles.begin(), obstacles.end(), 0);
         for (int i = 0; i < 9; i++) std::fill(linkQ[i].begin(), linkQ[i].end(), 0.5f);
+        std::fill(ux_flow.begin(), ux_flow.end(), 0.0f);
+        std::fill(uy_flow.begin(), uy_flow.end(), 0.0f);
         std::fill(velocityMag.begin(), velocityMag.end(), 0.0f);
         std::fill(visualizationSource.begin(), visualizationSource.end(), 0.0f);
         std::fill(smoothedVelocityMag.begin(), smoothedVelocityMag.end(), 0.0f);
         totalSteps = 0;
         smoothedCd = 0.0f;
         smoothedCl = 0.0f;
+        frontalArea = 0.0f;
+        horizontalSpan = 0.0f;
+        aeroValid = true;
         initFluid(uInletTarget);
     }
 
@@ -161,7 +192,7 @@ struct LBMEngine {
      * CORE SIMULATION KERNEL.
      * Executes a single Time Step. Fused logic significantly improves cache performance.
      */
-    ForceResult step() {
+    ForceResult step(bool updateViz) {
         totalSteps++;
         // Smoothly adjust inlet velocity to prevent numerical shocks
         uInlet = uInlet * 0.99f + uInletTarget * 0.01f;
@@ -188,32 +219,30 @@ struct LBMEngine {
             fn_ptr[i] = fNew[i].data();
         }
         const uint8_t* __restrict obs_ptr = obstacles.data();
-        const float* __restrict lq_ptr[9];
+        float* __restrict lq_ptr[9];
         for (int i = 0; i < 9; i++) lq_ptr[i] = linkQ[i].data();
 
+        float* __restrict ux_f = ux_flow.data();
+        float* __restrict uy_f = uy_flow.data();
+
 #pragma omp parallel for schedule(static) default(none) \
-    shared(f_ptr, fn_ptr, obs_ptr, lq_ptr, velocityMag, visualizationSource, width, height, cs2, smagCoeff, inv2cs2, tau_0, regFactor, weights, CX, CY, opposite, vizMode, uInlet, numThreads, boundaryMode, W0, W1, W2) \
+    shared(f_ptr, fn_ptr, obs_ptr, lq_ptr, ux_f, uy_f, velocityMag, visualizationSource, width, height, cs2, smagCoeff, inv2cs2, tau_0, regFactor, weights, CX, CY, opposite, vizMode, uInlet, numThreads, boundaryMode, W0, W1, W2, updateViz) \
     reduction(+:totalForceX, totalForceY) reduction(min:stepMinY, stepMinX) reduction(max:stepMaxY, stepMaxX) \
     num_threads(numThreads)
         for (int y = 0; y < height; y++) {
             if (omp_get_thread_num() == 0) activeCores = omp_get_num_threads();
-            const bool y_edge = (y == 0 || y == height - 1);
-
             for (int x = 0; x < width; x++) {
                 const int idx = y * width + x;
                 if (obs_ptr[idx]) {
-                    // Update bounding box of obstacles for area-based aerodynamics
                     if (y < stepMinY) stepMinY = y; if (y > stepMaxY) stepMaxY = y;
                     if (x < stepMinX) stepMinX = x; if (x > stepMaxX) stepMaxX = x;
                     continue;
                 }
 
-                // --- 1. PULL STREAMING & BOUNDARY COLLISION ---
                 float local_f[9];
-                bool touchesWall = false; // Tracks whether this fluid cell is adjacent to a wall
+                bool touchesWall = false;
 
                 if (x == 0) {
-                    // Inlet Boundary: Constant velocity equilibrium
                     const float u = uInlet;
                     const float term1 = 1.0f - 1.5f * u * u;
                     const float u3 = 3.0f * u;
@@ -227,75 +256,91 @@ struct LBMEngine {
                     local_f[6] = W2 * (term1 - u3 + u45);
                     local_f[7] = W2 * (term1 - u3 + u45);
                     local_f[8] = W2 * (term1 + u3 + u45);
+                } else if (x == width - 1) {
+                    // TRULY OPEN Outflow: Equilibrium-Preserving Zero-Gradient
+                    // We copy the non-equilibrium part of the populations from the neighbor.
+                    // This allows waves and vortices to "stream" out of the tunnel at the local velocity
+                    // without any artificial pressure boundary or energy absorption.
+                    const int prev = idx - 1;
+                    float rho_p = f_ptr[0][prev] + f_ptr[1][prev] + f_ptr[2][prev] + f_ptr[3][prev] + f_ptr[4][prev] + f_ptr[5][prev] + f_ptr[6][prev] + f_ptr[7][prev] + f_ptr[8][prev];
+                    float invRhoP = 1.0f / fmaxf(0.1f, rho_p);
+                    float ux_p = (f_ptr[1][prev] - f_ptr[3][prev] + f_ptr[5][prev] - f_ptr[6][prev] - f_ptr[7][prev] + f_ptr[8][prev]) * invRhoP;
+                    float uy_p = (f_ptr[2][prev] - f_ptr[4][prev] + f_ptr[5][prev] + f_ptr[6][prev] - f_ptr[7][prev] - f_ptr[8][prev]) * invRhoP;
+                    float u2sq_p = 1.5f * (ux_p * ux_p + uy_p * uy_p);
+
+                    for (int i = 0; i < 9; i++) {
+                        float cu_p = 3.0f * (cxs[i] * ux_p + cys[i] * uy_p);
+                        float feq_p = weights[i] * rho_p * (1.0f + cu_p + 0.5f * cu_p * cu_p - u2sq_p);
+                        float fneq_p = f_ptr[i][prev] - feq_p;
+                        // Use the exact density and velocity of the neighbor to eliminate the impedance mismatch
+                        float feq_out = weights[i] * rho_p * (1.0f + cu_p + 0.5f * cu_p * cu_p - u2sq_p);
+                        local_f[i] = feq_out + fneq_p;
+                    }
                 } else {
                     for (int i = 0; i < 9; i++) {
-                        int nx = x - CX[i];
-                        int ny = y - CY[i];
-
-                        // Top/Bottom walls or Periodic wrap
+                        int nx = x - CX[i]; int ny = y - CY[i];
                         if (nx < 0) nx = width - 1; else if (nx >= width) nx = 0;
                         if (ny < 0 || ny >= height) {
-                            if (boundaryMode == PERIODIC) {
-                                if (ny < 0) ny = height - 1; else ny = 0;
-                            } else {
-                                local_f[i] = f_ptr[opposite[i]][idx];
+                            if (boundaryMode == PERIODIC) { if (ny < 0) ny = height - 1; else ny = 0; }
+                            else if (boundaryMode == OPEN) {
+                                // Far-Field Boundary (Infinity): Pin to ambient state (rho=1.0, u=uInlet)
+                                // but keep the non-equilibrium part to allow pressure waves to pass through.
+                                int ny_n = (ny < 0) ? 0 : height - 1;
+                                int idx_n = ny_n * width + x;
+
+                                float rho_n = f_ptr[0][idx_n] + f_ptr[1][idx_n] + f_ptr[2][idx_n] + f_ptr[3][idx_n] + f_ptr[4][idx_n] + f_ptr[5][idx_n] + f_ptr[6][idx_n] + f_ptr[7][idx_n] + f_ptr[8][idx_n];
+                                float invRhoN = 1.0f / fmaxf(0.1f, rho_n);
+                                float ux_n = (f_ptr[1][idx_n] - f_ptr[3][idx_n] + f_ptr[5][idx_n] - f_ptr[6][idx_n] - f_ptr[7][idx_n] + f_ptr[8][idx_n]) * invRhoN;
+                                float uy_n = (f_ptr[2][idx_n] - f_ptr[4][idx_n] + f_ptr[5][idx_n] + f_ptr[6][idx_n] - f_ptr[7][idx_n] - f_ptr[8][idx_n]) * invRhoN;
+
+                                float u2sq_n = 1.5f * (ux_n * ux_n + uy_n * uy_n);
+                                float cu_n = 3.0f * (cxs[i] * ux_n + cys[i] * uy_n);
+                                float feq_n = weights[i] * rho_n * (1.0f + cu_n + 0.5f * cu_n * cu_n - u2sq_n);
+
+                                // Target Far-Field Equilibrium (ambient state)
+                                float u2sq_inf = 1.5f * (uInlet * uInlet);
+                                float cu_inf = 3.0f * (cxs[i] * uInlet);
+                                float feq_inf = weights[i] * 1.0f * (1.0f + cu_inf + 0.5f * cu_inf * cu_inf - u2sq_inf);
+
+                                local_f[i] = feq_inf + (f_ptr[i][idx_n] - feq_n);
                                 continue;
                             }
+                            else { local_f[i] = f_ptr[opposite[i]][idx]; continue; }
                         }
-
                         const int srcIdx = ny * width + nx;
                         if (obs_ptr[srcIdx]) {
-                            touchesWall = true; // Mark node for boundary-layer viscosity damping
-
-                            // INTERPOLATED BOUNDARY CONDITION (BFL Scheme)
+                            touchesWall = true;
                             const int dir_to_wall = opposite[i];
                             const float q = lq_ptr[dir_to_wall][idx];
                             const float fi_out = f_ptr[dir_to_wall][idx];
                             float fi_in;
-
                             if (q < 0.5f) {
-                                int nx2 = x + CX[i];
-                                int ny2 = y + CY[i];
+                                int nx2 = x + CX[i]; int ny2 = y + CY[i];
                                 if (nx2 < 0) nx2 = width - 1; else if (nx2 >= width) nx2 = 0;
                                 if (ny2 < 0) ny2 = height - 1; else if (ny2 >= height) ny2 = 0;
                                 const int idx2 = ny2 * width + nx2;
-
-                                // Safety check for thin geometry/trailing edges
-                                if (obs_ptr[idx2]) {
-                                    fi_in = fi_out; // Standard bounce-back fallback
-                                } else {
-                                    fi_in = 2.0f * q * fi_out + (1.0f - 2.0f * q) * f_ptr[dir_to_wall][idx2];
-                                }
+                                if (obs_ptr[idx2]) fi_in = q * 2.0f * fi_out + (1.0f - 2.0f * q) * f_ptr[i][idx];
+                                else fi_in = 2.0f * q * fi_out + (1.0f - 2.0f * q) * f_ptr[dir_to_wall][idx2];
                             } else {
-                                // Corrected BFL formula for q >= 0.5 using local distribution f_i[idx]
                                 const float inv2q = 1.0f / (2.0f * q);
                                 fi_in = inv2q * fi_out + (1.0f - inv2q) * f_ptr[i][idx];
                             }
                             local_f[i] = fi_in;
-
-                            // Momentum Exchange: Integrate forces (Drag and Lift)
                             totalForceX += (double)(fi_out + fi_in) * (double)CX[dir_to_wall];
                             totalForceY += (double)(fi_out + fi_in) * (double)CY[dir_to_wall];
-                        } else {
-                            local_f[i] = f_ptr[i][srcIdx]; // Regular fluid streaming
-                        }
+                        } else local_f[i] = f_ptr[i][srcIdx];
                     }
                 }
 
-                // --- 2. MACROSCOPIC MOMENTS ---
                 const float rho = local_f[0] + local_f[1] + local_f[2] + local_f[3] + local_f[4] + local_f[5] + local_f[6] + local_f[7] + local_f[8];
                 const float invRho = 1.0f / fmaxf(0.1f, rho);
                 float ux = (local_f[1] - local_f[3] + local_f[5] - local_f[6] - local_f[7] + local_f[8]) * invRho;
                 float uy = (local_f[2] - local_f[4] + local_f[5] + local_f[6] - local_f[7] - local_f[8]) * invRho;
+                float vMag2 = ux * ux + uy * uy;
+                if (vMag2 > 0.2025f) { float s = 0.45f / sqrtf(vMag2); ux *= s; uy *= s; vMag2 = 0.2025f; }
 
-                float vMag2 = ux * ux + uy * uy; float vMag = sqrtf(vMag2);
-                if (vMag > 0.45f) { float s = 0.45f / vMag; ux *= s; uy *= s; vMag = 0.45f; vMag2 = 0.2025f; }
-                velocityMag[idx] = vMag;
-
-                // --- 3. COLLISION (Regularized BGK + Wall-Damped Smagorinsky) ---
+                const float row_w_9 = rho * W1; const float row_w_36 = rho * W2;
                 const float one_minus_15u2 = 1.0f - 1.5f * vMag2;
-                const float row_w_9 = rho * W1;
-                const float row_w_36 = rho * W2;
                 const float ux3 = 3.0f * ux; const float uy3 = 3.0f * uy;
                 const float ux9 = 4.5f * ux * ux; const float uy9 = 4.5f * uy * uy;
                 const float uxy9 = 9.0f * ux * uy;
@@ -312,54 +357,88 @@ struct LBMEngine {
                 feq[7] = row_w_36 * (common_diag - ux3 - uy3 + uxy9);
                 feq[8] = row_w_36 * (common_diag + ux3 - uy3 - uxy9);
 
-                // Compute local Stress Tensor for the Smagorinsky model
                 float pixx = (local_f[1]-feq[1]) + (local_f[3]-feq[3]) + (local_f[5]-feq[5]) + (local_f[6]-feq[6]) + (local_f[7]-feq[7]) + (local_f[8]-feq[8]);
                 float piyy = (local_f[2]-feq[2]) + (local_f[4]-feq[4]) + (local_f[5]-feq[5]) + (local_f[6]-feq[6]) + (local_f[7]-feq[7]) + (local_f[8]-feq[8]);
                 float pixy = (local_f[5]-feq[5]) - (local_f[6]-feq[6]) + (local_f[7]-feq[7]) - (local_f[8]-feq[8]);
 
-                // Damp Smagorinsky coefficient to 0 at wall-adjacent cells to eliminate artificial viscosity spikes
-                const float localSmagCoeff = touchesWall ? 0.0f : smagCoeff;
+                float nu_t = 0;
+                if (x > 0 && x < width - 1 && y > 0 && y < height - 1) {
+                    float g11 = (ux_f[idx + 1] - ux_f[idx - 1]) * 0.5f;
+                    float g12 = (ux_f[idx + width] - ux_f[idx - width]) * 0.5f;
+                    float g21 = (uy_f[idx + 1] - uy_f[idx - 1]) * 0.5f;
+                    float g22 = (uy_f[idx + width] - uy_f[idx - width]) * 0.5f;
+                    float sd11 = g11 * g11 + g12 * g21; float sd22 = g21 * g12 + g22 * g22;
+                    float sd12 = 0.5f * (g11 * g12 + g12 * g22 + g21 * g11 + g22 * g21);
+                    float trSd = sd11 + sd22; float Sd11 = sd11 - 0.5f * trSd; float Sd22 = sd22 - 0.5f * trSd;
+                    float Sd2 = Sd11 * Sd11 + Sd22 * Sd22 + 2.0f * sd12 * sd12;
+                    float S2 = g11 * g11 + g22 * g22 + 0.5f * (g12 + g21) * (g12 + g21);
+                    if (S2 > 1e-10f) {
+                        const float cw = 0.325f;
+                        float sd2_15 = Sd2 * sqrtf(Sd2);
+                        float s2_25 = S2 * S2 * sqrtf(S2);
+                        float sd2_125 = Sd2 * sqrtf(sqrtf(Sd2)); // Correct x^1.25 scaling
+                        nu_t = (cw * cw) * sd2_15 / (s2_25 + sd2_125);
+                    }
+                }
 
-                const float S = sqrtf(pixx * pixx + 2.0f * pixy * pixy + piyy * piyy) * invRho * inv2cs2;
-                const float tau_eff = tau_0 + 0.5f * (sqrtf(tau_0 * tau_0 + localSmagCoeff * S) - tau_0);
-                const float one_minus_invTau = 1.0f - (1.0f / fmaxf(tau_eff, 0.501f));
+                const float tau_eff = tau_0 + 3.0f * nu_t;
+                const float one_minus_invTau = 1.0f - (1.0f / fmaxf(tau_eff, 0.505f));
                 const float common_reg = one_minus_invTau * regFactor;
-
-                const float reg_pixx = common_reg * (pixx * (1.0f - cs2) + piyy * (0.0f - cs2));
-                const float reg_piyy = common_reg * (pixx * (0.0f - cs2) + piyy * (1.0f - cs2));
+                const float reg_pixx = common_reg * (pixx * (1.0f - cs2) - piyy * cs2);
+                const float reg_piyy = common_reg * (-pixx * cs2 + piyy * (1.0f - cs2));
                 const float reg_pixy = common_reg * 2.0f * pixy;
                 const float reg_diag = 2.0f * (reg_pixx + reg_piyy);
 
-                // FINAL COLLISION STEP: Store result in fn_ptr
                 fn_ptr[0][idx] = feq[0] + W0 * common_reg * (-cs2 * (pixx + piyy));
-                fn_ptr[1][idx] = feq[1] + W1 * reg_pixx;
-                fn_ptr[2][idx] = feq[2] + W1 * reg_piyy;
-                fn_ptr[3][idx] = feq[3] + W1 * reg_pixx;
-                fn_ptr[4][idx] = feq[4] + W1 * reg_piyy;
-                fn_ptr[5][idx] = feq[5] + W2 * (reg_diag + reg_pixy);
-                fn_ptr[6][idx] = feq[6] + W2 * (reg_diag - reg_pixy);
-                fn_ptr[7][idx] = feq[7] + W2 * (reg_diag + reg_pixy);
-                fn_ptr[8][idx] = feq[8] + W2 * (reg_diag - reg_pixy);
+                fn_ptr[1][idx] = feq[1] + W1 * reg_pixx; fn_ptr[2][idx] = feq[2] + W1 * reg_piyy;
+                fn_ptr[3][idx] = feq[3] + W1 * reg_pixx; fn_ptr[4][idx] = feq[4] + W1 * reg_piyy;
+                fn_ptr[5][idx] = feq[5] + W2 * (reg_diag + reg_pixy); fn_ptr[6][idx] = feq[6] + W2 * (reg_diag - reg_pixy);
+                fn_ptr[7][idx] = feq[7] + W2 * (reg_diag + reg_pixy); fn_ptr[8][idx] = feq[8] + W2 * (reg_diag - reg_pixy);
 
-                // Numerical Safety
-                if (std::isnan(fn_ptr[0][idx])) { for(int i=0; i<9; i++) fn_ptr[i][idx] = weights[i]; }
+                ux_f[idx] = ux; uy_f[idx] = uy;
 
-                // --- DATA PREPARATION FOR VISUALIZATION ---
-                const float ps = (rho - 1.0f) * cs2;
-                const float pressScale = (uInlet > 0.001f) ? (1.0f / (uInlet * uInlet)) : 100.0f;
-                if (vizMode == VELOCITY) visualizationSource[idx] = vMag;
-                else if (vizMode == PRESSURE) visualizationSource[idx] = 0.5f + ps * pressScale;
-                else visualizationSource[idx] = 0.5f + (ps + 0.5f * rho * vMag2) * pressScale;
+                if (updateViz) {
+                    float vMag = sqrtf(vMag2); velocityMag[idx] = vMag;
+                    const float ps = (rho - 1.0f) * cs2;
+                    const float pressScale = (uInlet > 0.001f) ? (1.0f / (uInlet * uInlet)) : 100.0f;
+                    if (vizMode == VELOCITY) visualizationSource[idx] = vMag;
+                    else if (vizMode == PRESSURE) visualizationSource[idx] = 0.5f + ps * pressScale;
+                    else {
+                        // Total Pressure: Static + Dynamic Pressure.
+                        // We subtract the ambient total pressure (0.5 * uInlet^2) to center the map on 0.5.
+                        float p_total = ps + 0.5f * rho * vMag2;
+                        float p_total_ambient = 0.5f * uInlet * uInlet;
+                        visualizationSource[idx] = 0.5f + (p_total - p_total_ambient) * pressScale;
+                    }
+                }
             }
         }
 
         // Finalize aerodynamic geometric stats
-        if (stepMaxY >= stepMinY) frontalArea = static_cast<float>(stepMaxY - stepMinY + 1) * dx; else frontalArea = 0.0f;
-        if (stepMaxX >= stepMinX) horizontalSpan = static_cast<float>(stepMaxX - stepMinX + 1) * dx; else horizontalSpan = 0.0f;
-
-        // Swap grid buffers
         for (int i = 0; i < 9; i++) f[i].swap(fNew[i]);
+
+        // Automatic Area Calculation: Update reference dimensions from obstacle bounding box
+        // if they haven't been precisely set (e.g. by NACA call).
+        if (stepMaxY >= stepMinY) {
+            float boxArea = static_cast<float>(stepMaxY - stepMinY + 1) * dx;
+            float boxSpan = static_cast<float>(stepMaxX - stepMinX + 1) * dx;
+            // Use fmax to handle multiple obstacles added sequentially
+            frontalArea = fmaxf(frontalArea, boxArea);
+            horizontalSpan = fmaxf(horizontalSpan, boxSpan);
+        }
+
+        // Lift/Drag Not Applicable if obstacle touches the top/bottom boundary
+        // especially in Infinity mode where momentum exchange is truncated.
+        aeroValid = (stepMinY > 0 && stepMaxY < height - 1);
+
         return {(float)totalForceX, -(float)totalForceY};
+    }
+
+    void updateColorLUT(int scheme) {
+        colorScheme = scheme;
+        for (int i = 0; i < 256; i++) {
+            colorLUT[i] = mapColor(static_cast<float>(i) / 255.0f, scheme);
+        }
     }
 };
 
@@ -374,9 +453,13 @@ void updateAerodynamics(LBMEngine* e, double dragAcc, double liftAcc, int steps)
     e->dragForceNewtons = fabsf(avgD) * conv;
     e->liftForceNewtons = avgL * conv;
     float uL = e->uInlet;
+    // Aerodynamic Convention:
+    // For wings/streamlined bodies, use Chord (horizontal span).
+    // For blunt bodies (cylinders/boxes), use Frontal Area (height).
+    // We take the maximum of the two to automatically select the most appropriate reference.
     float refL = fmaxf(e->frontalArea, e->horizontalSpan) / e->dx;
     float dynP = 0.5f * (uL * uL);
-    if (uL > 0.001f && refL > 0.5f) {
+    if (e->aeroValid && uL > 0.001f && refL > 0.5f) {
         float instantCd = fabsf(avgD) / (dynP * refL);
         float instantCl = avgL / (dynP * refL);
         e->dragCoefficient = instantCd;
@@ -403,11 +486,17 @@ extern "C" JNIEXPORT void JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_destr
  * Also computes BFL 'q' values for smooth boundary reflection.
  */
 extern "C" JNIEXPORT void JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_addObstacleNative(JNIEnv *env, jobject thiz, jlong ptr, jint cx, jint cy, jint radius) {
-    auto* e = reinterpret_cast<LBMEngine*>(ptr); int r2 = radius * radius;
+    auto* e = reinterpret_cast<LBMEngine*>(ptr);
     float R = static_cast<float>(radius);
-    for (int y = std::max(0, cy - radius); y <= std::min(e->height - 1, cy + radius); y++)
-        for (int x = std::max(0, cx - radius); x <= std::min(e->width - 1, cx + radius); x++)
-            if ((x - cx) * (x - cx) + (y - cy) * (y - cy) <= r2) e->obstacles[y * e->width + x] = 1;
+    float r2_threshold = R * R - 0.1f; // Slightly tighter bound to avoid single cardinal pixels
+
+    for (int y = std::max(0, cy - radius); y <= std::min(e->height - 1, cy + radius); y++) {
+        for (int x = std::max(0, cx - radius); x <= std::min(e->width - 1, cx + radius); x++) {
+            float dx = static_cast<float>(x - cx);
+            float dy = static_cast<float>(y - cy);
+            if (dx * dx + dy * dy <= r2_threshold) e->obstacles[y * e->width + x] = 1;
+        }
+    }
     for (int y = std::max(0, cy - radius - 1); y <= std::min(e->height - 1, cy + radius + 1); y++) {
         for (int x = std::max(0, cx - radius - 1); x <= std::min(e->width - 1, cx + radius + 1); x++) {
             int idx = y * e->width + x; if (e->obstacles[idx]) continue;
@@ -417,7 +506,7 @@ extern "C" JNIEXPORT void JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_addOb
                 if (nx < 0 || nx >= e->width || ny < 0 || ny >= e->height) continue;
                 if (e->obstacles[ny * e->width + nx]) {
                     float vx = e->cxs[i]; float vy = e->cys[i];
-                    float A = vx*vx + vy*vy; float B = 2.0f * (dxf*vx + dyf*vy); float C = dxf*dxf + dyf*dyf - R*R;
+                    float A = vx*vx + vy*vy; float B = 2.0f * (dxf*vx + dyf*vy); float C = dxf*dxf + dyf*dyf - (R*R - 0.1f);
                     float det = B*B - 4.0f*A*C;
                     if (det >= 0) {
                         float q = (-B + sqrtf(det)) / (2.0f * A);
@@ -461,32 +550,92 @@ extern "C" JNIEXPORT void JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_addNa
     float cosA = cosf(angleRad); float sinA = sinf(angleRad);
     int pad = chord / 2; int x_min = std::max(0, cx - pad); int x_max = std::min(e->width - 1, cx + chord + pad);
     int y_min = std::max(0, cy - chord); int y_max = std::min(e->height - 1, cy + chord);
+    // 1. Helper to check if a global coordinate is inside the NACA profile
+    // Uses the high-fidelity perpendicular thickness definition
+    auto isInside = [&](float px, float py) -> bool {
+        float fChord = static_cast<float>(chord);
+        float dx_rel = px - (static_cast<float>(cx) + 0.5f);
+        float dy_rel = py - (static_cast<float>(cy) + 0.5f);
+
+        // Coordinate rotation to local wing space
+        float x_l = dx_rel * cosA + dy_rel * sinA;
+        float y_l = -dx_rel * sinA + dy_rel * cosA;
+
+        float x_f = x_l / fChord;
+        if (x_f < 0.0f || x_f > 1.0f) return false;
+
+        // Camber and Slope
+        float yc = 0.0f;
+        float dyc_dx = 0.0f;
+        if (p > 0.001f) {
+            if (x_f <= p) {
+                yc = (m / (p * p)) * (2.0f * p * x_f - x_f * x_f);
+                dyc_dx = (2.0f * m / (p * p)) * (p - x_f);
+            } else {
+                float one_m_p_sq = (1.0f - p) * (1.0f - p);
+                yc = (m / one_m_p_sq) * ((1.0f - 2.0f * p) + 2.0f * p * x_f - x_f * x_f);
+                dyc_dx = (2.0f * m / one_m_p_sq) * (p - x_f);
+            }
+        }
+
+        // Thickness (using -0.1036 coefficient for exact closure at the trailing edge)
+        float yt = 5.0f * t * (0.2969f * sqrtf(x_f) - 0.1260f * x_f - 0.3516f * x_f * x_f + 0.2843f * powf(x_f, 3) - 0.1036f * powf(x_f, 4));
+
+        // Exact Perpendicular Distance Check
+        // theta is the angle of the camber line
+        float theta = atanf(dyc_dx);
+        // The distance from the point to the camber line, projected onto the normal
+        // Note: y_l is positive down in local space, yc is positive up in NACA definition
+        float dist_to_camber = (y_l + yc * fChord) * cosf(theta);
+
+        return fabsf(dist_to_camber) <= yt * fChord;
+    };
+
+    // 2. Render the visual mask with 8x Super-Sampling to eliminate single-pixel spikes
     for (int py = y_min; py <= y_max; py++) {
         for (int px = x_min; px <= x_max; px++) {
-            float dx_rel = (float)(px - cx); float dy_rel = (float)(py - cy);
-            float x_loc = dx_rel * cosA + dy_rel * sinA; float y_loc = -dx_rel * sinA + dy_rel * cosA;
-            float x_f = x_loc / (float)chord;
-            if (x_f >= 0.0f && x_f <= 1.0f) {
-                float yt = 5.0f * t * (0.2969f * sqrtf(x_f) - 0.1260f * x_f - 0.3516f * x_f * x_f + 0.2843f * powf(x_f, 3) - 0.1015f * powf(x_f, 4));
-                float yc = 0.0f;
-                if (p > 0.001f) {
-                    if (x_f <= p) yc = (m / (p * p)) * (2.0f * p * x_f - x_f * x_f);
-                    else yc = (m / powf(1.0f - p, 2)) * ((1.0f - 2.0f * p) + 2.0f * p * x_f - x_f * x_f);
+            int insideCount = 0;
+            for (int sy = 0; sy < 8; sy++) {
+                for (int sx = 0; sx < 8; sx++) {
+                    if (isInside(static_cast<float>(px) + (sx + 0.5f) / 8.0f, static_cast<float>(py) + (sy + 0.5f) / 8.0f))
+                        insideCount++;
                 }
-                float fChord = static_cast<float>(chord);
-                if (fabsf(y_loc + yc * fChord) <= yt * fChord) e->obstacles[py * e->width + px] = 1;
+            }
+            if (insideCount >= 32) e->obstacles[py * e->width + px] = 1;
+        }
+    }
+
+    // 3. Compute accurate sub-grid distances (q) for BFL boundary scheme
+    // We calculate q relative to the TRUE mathematical boundary, ignoring the pixel mask
+    for (int py = std::max(0, y_min - 1); py <= std::min(e->height - 1, y_max + 1); py++) {
+        for (int px = std::max(0, x_min - 1); px <= std::min(e->width - 1, x_max + 1); px++) {
+            int idx = py * e->width + px;
+            if (e->obstacles[idx]) continue;
+
+            for (int i = 1; i < 9; i++) {
+                float nx = static_cast<float>(px) + 0.5f + e->cxs[i];
+                float ny = static_cast<float>(py) + 0.5f + e->cys[i];
+
+                if (isInside(nx, ny)) {
+                    // Intersection search: Solve for q relative to the true smooth curve
+                    float q_low = 0.0f, q_high = 1.0f;
+                    for (int iter = 0; iter < 12; iter++) {
+                        float q_mid = (q_low + q_high) * 0.5f;
+                        if (isInside(static_cast<float>(px) + 0.5f + q_mid * e->cxs[i],
+                                     static_cast<float>(py) + 0.5f + q_mid * e->cys[i])) q_high = q_mid;
+                        else q_low = q_mid;
+                    }
+                    e->linkQ[i][idx] = fmaxf(0.01f, q_high);
+                }
             }
         }
     }
-    for (int idx = 0; idx < e->width * e->height; idx++) {
-        if (e->obstacles[idx]) continue;
-        int x = idx % e->width; int y = idx / e->width;
-        if (x < x_min || x > x_max || y < y_min || y > y_max) continue;
-        for (int i = 1; i < 9; i++) {
-            int nx = x + (int)e->cxs[i]; int ny = y + (int)e->cys[i];
-            if (nx >= 0 && nx < e->width && ny >= 0 && ny < e->height && e->obstacles[ny * e->width + nx]) e->linkQ[i][idx] = 0.5f;
-        }
-    }
+
+    // 4. Set Mathematical Reference Area for stable Cd/Cl readings
+    float t_max = t * static_cast<float>(chord);
+    // Approximate projected frontal area: thickness * cos(AoA) + chord * sin(AoA)
+    e->frontalArea = (t_max * fabsf(cosf(angleRad)) + static_cast<float>(chord) * fabsf(sinf(angleRad))) * e->dx;
+    e->horizontalSpan = static_cast<float>(chord) * fabsf(cosf(angleRad)) * e->dx;
 }
 
 extern "C" JNIEXPORT void JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_setDensityNative(JNIEnv *env, jobject thiz, jlong ptr, jfloat d) { reinterpret_cast<LBMEngine*>(ptr)->rhoAir = d; }
@@ -503,7 +652,7 @@ extern "C" JNIEXPORT void JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_stepN
     if (!e) return;
     double dragAcc = 0.0; double liftAcc = 0.0;
     for (int i = 0; i < steps; i++) {
-        ForceResult res = e->step();
+        ForceResult res = e->step(false); // Headless never needs viz preparation
         dragAcc += static_cast<double>(res.drag);
         liftAcc += static_cast<double>(res.lift);
     }
@@ -520,7 +669,8 @@ extern "C" JNIEXPORT void JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_stepA
 
     // 1. EXECUTE PHYSICS
     for (int i = 0; i < steps; i++) {
-        ForceResult res = e->step();
+        // Only prepare visualization data on the very last step to save CPU cycles
+        ForceResult res = e->step(i == steps - 1);
         dragAcc += static_cast<double>(res.drag);
         liftAcc += static_cast<double>(res.lift);
     }
@@ -634,6 +784,9 @@ extern "C" JNIEXPORT jfloat JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_get
 extern "C" JNIEXPORT jfloat JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_getInstantLiftCoefficientNative(JNIEnv *env, jobject thiz, jlong ptr) {
     return reinterpret_cast<LBMEngine*>(ptr)->liftCoefficient;
 }
+extern "C" JNIEXPORT jboolean JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_isAerodynamicsValidNative(JNIEnv *env, jobject thiz, jlong ptr) {
+    return reinterpret_cast<LBMEngine*>(ptr)->aeroValid;
+}
 extern "C" JNIEXPORT jlong JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_getTotalStepsNative(JNIEnv *env, jobject thiz, jlong ptr) { return (jlong)reinterpret_cast<LBMEngine*>(ptr)->totalSteps; }
 extern "C" JNIEXPORT jfloat JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_getDensityNative(JNIEnv *env, jobject thiz, jlong ptr) { return reinterpret_cast<LBMEngine*>(ptr)->rhoAir; }
 extern "C" JNIEXPORT jfloat JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_getViscosityNative(JNIEnv *env, jobject thiz, jlong ptr) { return reinterpret_cast<LBMEngine*>(ptr)->nuAir; }
@@ -642,6 +795,10 @@ extern "C" JNIEXPORT jfloat JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_get
 extern "C" JNIEXPORT void JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_setVisualizationModeNative(JNIEnv *env, jobject thiz, jlong ptr, jint m) { reinterpret_cast<LBMEngine*>(ptr)->vizMode = static_cast<LBMEngine::VisualizationMode>(m); }
 extern "C" JNIEXPORT void JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_setBoundaryModeNative(JNIEnv *env, jobject thiz, jlong ptr, jint mode) {
     reinterpret_cast<LBMEngine*>(ptr)->boundaryMode = static_cast<LBMEngine::BoundaryMode>(mode);
+}
+
+extern "C" JNIEXPORT void JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_setColorSchemeNative(JNIEnv *env, jobject thiz, jlong ptr, jint scheme) {
+    reinterpret_cast<LBMEngine*>(ptr)->updateColorLUT(scheme);
 }
 
 extern "C" JNIEXPORT jint JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_getMaxCoresNative(JNIEnv *env, jobject thiz) {

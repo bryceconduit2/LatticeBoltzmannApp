@@ -342,23 +342,26 @@
 
             <RadioButton
                 android:id="@+id/rbVizVelocity"
-                android:layout_width="wrap_content"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
+                android:layout_weight="1"
                 android:checked="true"
                 android:text="@string/rb_viz_velocity"
                 android:textColor="@android:color/white" />
 
             <RadioButton
                 android:id="@+id/rbVizPressure"
-                android:layout_width="wrap_content"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
+                android:layout_weight="1"
                 android:text="@string/rb_viz_pressure"
                 android:textColor="@android:color/white" />
 
             <RadioButton
                 android:id="@+id/rbVizTotal"
-                android:layout_width="wrap_content"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
+                android:layout_weight="1"
                 android:text="@string/rb_viz_total"
                 android:textColor="@android:color/white" />
         </RadioGroup>
@@ -373,6 +376,54 @@
             android:layout_height="wrap_content"
             android:text="@string/sw_absolute_pressure"
             android:textColor="@android:color/white" />
+
+        <Space
+            android:layout_width="match_parent"
+            android:layout_height="16dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/header_color_scheme"
+            android:textColor="@android:color/white"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <RadioGroup
+            android:id="@+id/rgColorScheme"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <RadioButton
+                android:id="@+id/rbColorStandard"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:checked="true"
+                android:text="@string/rb_color_standard"
+                android:textColor="@android:color/white" />
+
+            <RadioButton
+                android:id="@+id/rbColorIronbow"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/rb_color_ironbow"
+                android:textColor="@android:color/white" />
+
+            <RadioButton
+                android:id="@+id/rbColorGrayscale"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/rb_color_grayscale"
+                android:textColor="@android:color/white" />
+
+            <RadioButton
+                android:id="@+id/rbColorOcean"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/rb_color_ocean"
+                android:textColor="@android:color/white" />
+        </RadioGroup>
 
         <Space
             android:layout_width="match_parent"
@@ -412,6 +463,13 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/rb_bnd_free_slip"
+                android:textColor="@android:color/white" />
+
+            <RadioButton
+                android:id="@+id/rbBndOpen"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/rb_bnd_open"
                 android:textColor="@android:color/white" />
         </RadioGroup>
 

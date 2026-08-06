@@ -22,7 +22,7 @@ class ForceGraphView @JvmOverloads constructor(
     var displayMode = DisplayMode.FORCE
     
     // Data structure for a single simulation point
-    data class ForcePoint(val time: Float, val drag: Float, val lift: Float, val cd: Float, val cl: Float)
+    data class ForcePoint(val time: Float, val drag: Float, val lift: Float, val cd: Float, val cl: Float, val isValid: Boolean = true)
     private var history = listOf<ForcePoint>()
 
     // Utility for density-independent pixel scaling
@@ -89,12 +89,14 @@ class ForceGraphView @JvmOverloads constructor(
         var maxVal = if (displayMode == DisplayMode.FORCE) 10f else 2f
         
         history.forEach {
-            if (displayMode == DisplayMode.FORCE) {
-                maxVal = maxOf(maxVal, it.drag, it.lift)
-                minVal = minOf(minVal, it.drag, it.lift)
-            } else {
-                maxVal = maxOf(maxVal, it.cd, it.cl)
-                minVal = minOf(minVal, it.cd, it.cl)
+            if (it.isValid) {
+                if (displayMode == DisplayMode.FORCE) {
+                    maxVal = maxOf(maxVal, it.drag, it.lift)
+                    minVal = minOf(minVal, it.drag, it.lift)
+                } else {
+                    maxVal = maxOf(maxVal, it.cd, it.cl)
+                    minVal = minOf(minVal, it.cd, it.cl)
+                }
             }
         }
         val rangeVal = (maxVal - minVal).coerceAtLeast(0.001f)
@@ -143,21 +145,35 @@ class ForceGraphView @JvmOverloads constructor(
         dragPath.reset()
         liftPath.reset()
 
-        history.forEachIndexed { i, pt ->
-            // Map data coordinates to pixel coordinates
-            val x = padding + ((pt.time - minTime) / rangeTime) * graphWidth
-            val vDrag = if (displayMode == DisplayMode.FORCE) pt.drag else pt.cd
-            val vLift = if (displayMode == DisplayMode.FORCE) pt.lift else pt.cl
-            
-            val yDrag = height - padding - ((vDrag - minVal) / rangeVal) * graphHeight
-            val yLift = height - padding - ((vLift - minVal) / rangeVal) * graphHeight
+        var dragStarted = false
+        var liftStarted = false
 
-            if (i == 0) {
-                dragPath.moveTo(x, yDrag)
-                liftPath.moveTo(x, yLift)
+        history.forEach { pt ->
+            if (pt.isValid) {
+                // Map data coordinates to pixel coordinates
+                val x = padding + ((pt.time - minTime) / rangeTime) * graphWidth
+                val vDrag = if (displayMode == DisplayMode.FORCE) pt.drag else pt.cd
+                val vLift = if (displayMode == DisplayMode.FORCE) pt.lift else pt.cl
+
+                val yDrag = height - padding - ((vDrag - minVal) / rangeVal) * graphHeight
+                val yLift = height - padding - ((vLift - minVal) / rangeVal) * graphHeight
+
+                if (!dragStarted) {
+                    dragPath.moveTo(x, yDrag)
+                    dragStarted = true
+                } else {
+                    dragPath.lineTo(x, yDrag)
+                }
+
+                if (!liftStarted) {
+                    liftPath.moveTo(x, yLift)
+                    liftStarted = true
+                } else {
+                    liftPath.lineTo(x, yLift)
+                }
             } else {
-                dragPath.lineTo(x, yDrag)
-                liftPath.lineTo(x, yLift)
+                dragStarted = false
+                liftStarted = false
             }
         }
 
@@ -174,7 +190,7 @@ class ForceGraphView @JvmOverloads constructor(
         var count = 0
         
         history.forEach {
-            if (it.time > 0.05f) {
+            if (it.time > 0.05f && it.isValid) {
                 sumDrag += it.drag
                 sumLift += it.lift
                 sumCd += it.cd
@@ -199,7 +215,11 @@ class ForceGraphView @JvmOverloads constructor(
             displayDrag = "Settling..."
             displayLift = "Settling..."
         } else {
-            if (displayMode == DisplayMode.FORCE) {
+            val lastPt = history.last()
+            if (!lastPt.isValid) {
+                displayDrag = "N/A (Touching Boundary)"
+                displayLift = "N/A (Touching Boundary)"
+            } else if (displayMode == DisplayMode.FORCE) {
                 displayDrag = String.format(Locale.US, "Avg Drag: %.1f N", avgDrag)
                 displayLift = String.format(Locale.US, "Avg Lift: %.1f N", avgLift)
             } else {

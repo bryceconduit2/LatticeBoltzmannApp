@@ -11,11 +11,11 @@
     <string name="rb_mode_coef">Coefficients</string>
 
     <!-- Settings Menu -->
-    <string name="header_tunnel_size">Tunnel Size</string>
-    <string name="rb_tiny">Tiny (160x80 - Performance)</string>
-    <string name="rb_small">Small (0.5m x 0.25m)</string>
-    <string name="rb_medium">Medium (1.0m x 0.5m)</string>
-    <string name="rb_large">Large (1.5m x 0.75m)</string>
+    <string name="header_tunnel_size">Tunnel Size (Resolution)</string>
+    <string name="rb_tiny">Tiny (160x80 | 0.4m x 0.2m)</string>
+    <string name="rb_small">Small (200x100 | 0.5m x 0.25m)</string>
+    <string name="rb_medium">Medium (400x200 | 1.0m x 0.5m)</string>
+    <string name="rb_large">Large (600x300 | 1.5m x 0.75m)</string>
     <string name="btn_reset_defaults">Reset to Defaults</string>
 
     <string name="label_airflow_speed">Airflow Speed</string>
@@ -33,6 +33,11 @@
     <string name="label_brush_size">Brush Size / Chord</string>
 
     <string name="header_visualization">Visualization Map</string>
+    <string name="header_color_scheme">Contour Color Scheme</string>
+    <string name="rb_color_standard">Standard (Jet)</string>
+    <string name="rb_color_ironbow">Ironbow (Heat)</string>
+    <string name="rb_color_grayscale">Grayscale</string>
+    <string name="rb_color_ocean">Biolume (Ocean)</string>
     <string name="rb_viz_velocity">Velocity</string>
     <string name="rb_viz_pressure">Static Pressure</string>
     <string name="rb_viz_total">Total Pressure</string>
@@ -42,12 +47,12 @@
     <string name="rb_bnd_periodic">Periodic</string>
     <string name="rb_bnd_no_slip">Solid Walls</string>
     <string name="rb_bnd_free_slip">Symmetry/Smooth</string>
+    <string name="rb_bnd_open">Open Space (Infinity)</string>
 
     <string name="sw_telemetry">Show Detailed Stats</string>
     <string name="sw_gridlines">Show Gridlines</string>
-    <string name="sw_local_refinement">Refined Boundary Physics (Experimental - Slower)</string>
 
-    <string name="label_processing_cores">Processing Cores</string>
+    <string name="label_processing_cores">Processing Cores (lower can be faster!)</string>
 
-    <string name="disclaimer_text">Educational Disclaimer:\nThis app is to be used as an educational tool only and not be relied upon for any design calculations. Please allow the flow to stabilise before reading any results, turbulence can cause significant fluctuations. Uses Lattice Boltzmann with Bouzidi–Firdaouss–Lallemand (BFL) scheme for boundary collisions</string>
+    <string name="disclaimer_text">Educational Disclaimer:\nThis app is an educational sandbox and not a certified engineering tool. All numerical figures, lift/drag coefficients, and force readings are provided for informational purposes only and should not be used for any design or performance calculations. Please allow the flow to stabilize before interpreting results.\n\nMethods Used:\n- Lattice Boltzmann Method (D2Q9)\n- WALE Subgrid-Scale Turbulence Model\n- Bouzidi–Firdaouss–Lallemand (BFL) Interpolated Boundaries\n- Enhanced Momentum Exchange Force Integration</string>
 </resources>

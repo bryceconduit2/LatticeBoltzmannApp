@@ -23,6 +23,7 @@ class NativeLBMEngine(val width: Int, val height: Int) {
         const val BND_PERIODIC = 0
         const val BND_NO_SLIP = 1
         const val BND_FREE_SLIP = 2
+        const val BND_OPEN = 3
     }
 
     init {
@@ -107,6 +108,10 @@ class NativeLBMEngine(val width: Int, val height: Int) {
         if (enginePtr != 0L) {
             resetSimulationNative(enginePtr)
         }
+    }
+
+    fun isAerodynamicsValid(): Boolean {
+        return if (enginePtr != 0L) isAerodynamicsValidNative(enginePtr) else true
     }
 
     /**
@@ -207,6 +212,12 @@ class NativeLBMEngine(val width: Int, val height: Int) {
         }
     }
 
+    fun setColorScheme(scheme: Int) {
+        if (enginePtr != 0L) {
+            setColorSchemeNative(enginePtr, scheme)
+        }
+    }
+
     fun getActiveCores(): Int {
         return if (enginePtr != 0L) getActiveCoresNative(enginePtr) else 0
     }
@@ -234,6 +245,7 @@ class NativeLBMEngine(val width: Int, val height: Int) {
     private external fun setDeltaTimeNative(ptr: Long, dt: Float)
     private external fun setVisualizationModeNative(ptr: Long, mode: Int)
     private external fun setBoundaryModeNative(ptr: Long, mode: Int)
+    private external fun setColorSchemeNative(ptr: Long, scheme: Int)
     private external fun getInletVelocityNative(ptr: Long): Float
     private external fun getDragForceNative(ptr: Long): Float
     private external fun getDragCoefficientNative(ptr: Long): Float
@@ -241,6 +253,7 @@ class NativeLBMEngine(val width: Int, val height: Int) {
     private external fun getLiftForceNative(ptr: Long): Float
     private external fun getLiftCoefficientNative(ptr: Long): Float
     private external fun getInstantLiftCoefficientNative(ptr: Long): Float
+    private external fun isAerodynamicsValidNative(ptr: Long): Boolean
     private external fun getTotalStepsNative(ptr: Long): Long
     private external fun getDensityNative(ptr: Long): Float
     private external fun getViscosityNative(ptr: Long): Float
