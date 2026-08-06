@@ -83,9 +83,12 @@ class MainActivity : AppCompatActivity() {
         dialog.setContentView(view)
 
         // Find all interactive elements in the menu
-        val rgSize = view.findViewById<RadioGroup>(R.id.rgSize)
+        val sbResolution = view.findViewById<SeekBar>(R.id.sbResolution)
+        val tvResolutionValue = view.findViewById<TextView>(R.id.tvResolutionValue)
         val sbSpeed = view.findViewById<SeekBar>(R.id.sbSpeed)
         val tvSpeedValue = view.findViewById<TextView>(R.id.tvSpeedValue)
+        val sbDX = view.findViewById<SeekBar>(R.id.sbDX)
+        val tvDXValue = view.findViewById<TextView>(R.id.tvDXValue)
         val sbDensity = view.findViewById<SeekBar>(R.id.sbDensity)
         val tvDensityValue = view.findViewById<TextView>(R.id.tvDensityValue)
         val sbViscosity = view.findViewById<SeekBar>(R.id.sbViscosity)
@@ -107,6 +110,13 @@ class MainActivity : AppCompatActivity() {
         val sbCores = view.findViewById<SeekBar>(R.id.sbCores)
         val tvCoreValue = view.findViewById<TextView>(R.id.tvCoreValue)
         val btnResetDefaults = view.findViewById<Button>(R.id.btnResetDefaults)
+
+        // Dynamic Resolution Max: Set the slider limit based on the actual screen width
+        // while maintaining a minimum of 160.
+        val displayMetrics = resources.displayMetrics
+        val screenWidth = maxOf(displayMetrics.widthPixels, displayMetrics.heightPixels)
+        val maxSimWidth = screenWidth.coerceIn(160, 2000) // Cap at 2000 for memory safety
+        sbResolution.max = maxSimWidth - 160
 
         val llNacaSelector = view.findViewById<android.view.View>(R.id.llNacaSelector)
         val spNacaProfiles = view.findViewById<android.widget.Spinner>(R.id.spNacaProfiles)
@@ -143,6 +153,10 @@ class MainActivity : AppCompatActivity() {
         sbDensity.progress = ((currentDensity - 0.5f) * 100.0f).toInt()
         tvDensityValue.text = String.format(Locale.US, "%.2f kg/m³", currentDensity)
 
+        val currentDX = windTunnelView.currentSimulationDX
+        sbDX.progress = ((currentDX - 0.0005f) / 0.0001f).toInt()
+        tvDXValue.text = String.format(Locale.US, "%.1f mm", currentDX * 1000f)
+
         val currentViscosity = windTunnelView.getViscosity()
         sbViscosity.progress = (((currentViscosity - 1e-6f) / 9.9e-5f) * 100.0f).toInt()
         tvViscosityValue.text = String.format(Locale.US, "%.1e m²/s", currentViscosity)
@@ -166,8 +180,7 @@ class MainActivity : AppCompatActivity() {
 
         when (windTunnelView.boundaryMode) {
             NativeLBMEngine.BND_PERIODIC -> rgBoundary.check(R.id.rbBndPeriodic)
-            NativeLBMEngine.BND_NO_SLIP -> rgBoundary.check(R.id.rbBndNoSlip)
-            NativeLBMEngine.BND_FREE_SLIP -> rgBoundary.check(R.id.rbBndFreeSlip)
+            NativeLBMEngine.BND_OPEN -> rgBoundary.check(R.id.rbBndOpen)
         }
 
         when (windTunnelView.colorScheme) {
@@ -187,12 +200,9 @@ class MainActivity : AppCompatActivity() {
         }
 
         val currentSimWidth = windTunnelView.getSimWidth()
-        when (currentSimWidth) {
-            160 -> rgSize.check(R.id.rbTiny)
-            200 -> rgSize.check(R.id.rbSmall)
-            400 -> rgSize.check(R.id.rbMedium)
-            600 -> rgSize.check(R.id.rbLarge)
-        }
+        val currentSimHeight = windTunnelView.getSimHeight()
+        sbResolution.progress = (currentSimWidth - 160).coerceIn(0, sbResolution.max)
+        tvResolutionValue.text = String.format(Locale.US, "%dx%d", currentSimWidth, currentSimHeight)
 
         // --- MENU INTERACTION LISTENERS ---
 
@@ -204,8 +214,6 @@ class MainActivity : AppCompatActivity() {
         rgBoundary.setOnCheckedChangeListener { _, checkedId ->
             val mode = when (checkedId) {
                 R.id.rbBndPeriodic -> NativeLBMEngine.BND_PERIODIC
-                R.id.rbBndNoSlip -> NativeLBMEngine.BND_NO_SLIP
-                R.id.rbBndFreeSlip -> NativeLBMEngine.BND_FREE_SLIP
                 R.id.rbBndOpen -> NativeLBMEngine.BND_OPEN
                 else -> NativeLBMEngine.BND_PERIODIC
             }
@@ -223,20 +231,32 @@ class MainActivity : AppCompatActivity() {
             windTunnelView.updateColorScheme(scheme)
         }
 
-        rgSize.setOnCheckedChangeListener { _, checkedId ->
-            when (checkedId) {
-                R.id.rbTiny -> windTunnelView.reinit(160, 80)
-                R.id.rbSmall -> windTunnelView.reinit(200, 100)
-                R.id.rbMedium -> windTunnelView.reinit(400, 200)
-                R.id.rbLarge -> windTunnelView.reinit(600, 300)
+        sbResolution.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                val w = progress + 160
+                val h = w / 2
+                tvResolutionValue.text = String.format(Locale.US, "%dx%d", w, h)
+                if (fromUser) windTunnelView.reinit(w, h)
             }
-        }
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+        })
 
         sbSpeed.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 val velocity = progress / 4.0f
                 windTunnelView.setAirflowSpeed(velocity)
                 tvSpeedValue.text = String.format(Locale.US, "%.1f m/s", velocity)
+            }
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+        })
+
+        sbDX.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                val dx = 0.0005f + (progress * 0.0001f)
+                windTunnelView.setSimulationDX(dx)
+                tvDXValue.text = String.format(Locale.US, "%.1f mm", dx * 1000f)
             }
             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
             override fun onStopTrackingTouch(seekBar: SeekBar?) {}
@@ -366,6 +386,7 @@ class MainActivity : AppCompatActivity() {
             // 1. Reset Internal State
             windTunnelView.reinit(400, 200)
             windTunnelView.setAirflowSpeed(30.0f)
+            windTunnelView.setSimulationDX(0.0025f)
             windTunnelView.setDensity(1.225f)
             windTunnelView.setViscosity(1.5e-5f)
             windTunnelView.updateDtScale(1.0f)
@@ -377,14 +398,17 @@ class MainActivity : AppCompatActivity() {
             windTunnelView.updateColorScheme(0)
             windTunnelView.useAbsolutePressure = false
             windTunnelView.showDetailedTelemetry = true
-            windTunnelView.useSmoothHD = true
+            windTunnelView.useSmoothHD = false
             windTunnelView.showGridlines = false
             windTunnelView.updateCoreCount(4.coerceAtMost(maxCores))
 
             // 2. Update UI Widgets in the menu
-            rgSize.check(R.id.rbMedium)
+            sbResolution.progress = 400 - 160
+            tvResolutionValue.text = String.format(Locale.US, "400x200")
             sbSpeed.progress = (30.0f * 4.0f).toInt()
             tvSpeedValue.text = String.format(Locale.US, "%.1f m/s", 30.0f)
+            sbDX.progress = ((0.0025f - 0.0005f) / 0.0001f).toInt()
+            tvDXValue.text = String.format(Locale.US, "2.5 mm")
             sbDensity.progress = ((1.225f - 0.5f) * 100.0f).toInt()
             tvDensityValue.text = String.format(Locale.US, "%.2f kg/m³", 1.225f)
             sbViscosity.progress = (((1.5e-5f - 1e-6f) / 9.9e-5f) * 100.0f).toInt()
@@ -402,7 +426,7 @@ class MainActivity : AppCompatActivity() {
             rgBoundary.check(R.id.rbBndPeriodic)
             rgColorScheme.check(R.id.rbColorStandard)
             swTelemetry.isChecked = true
-            swSmoothHD.isChecked = true
+            swSmoothHD.isChecked = false
             swGridlines.isChecked = false
             sbCores.progress = (4.coerceAtMost(maxCores)) - 1
             tvCoreValue.text = (4.coerceAtMost(maxCores)).toString()

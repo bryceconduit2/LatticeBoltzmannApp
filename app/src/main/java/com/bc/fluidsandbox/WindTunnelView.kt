@@ -49,7 +49,7 @@ class WindTunnelView @JvmOverloads constructor(
     private var currentRadius = 8
     private var persistentObjectRadius = 8
     private var hasActiveObject = false
-    private val maxRadius = 60 // Max growth limit to prevent blocking the entire tunnel
+    private val maxRadius = 120 // Max growth limit to prevent blocking the entire tunnel
 
     private var lastNacaSimX = -1f
     private var lastNacaSimY = -1f
@@ -62,7 +62,7 @@ class WindTunnelView @JvmOverloads constructor(
     
     var showDetailedTelemetry = true
     var showGridlines = false
-    var useSmoothHD = true
+    var useSmoothHD = false
     var baseBrushSize = 8
     var airfoilAoA = 0.0f
     var visualizationMode = NativeLBMEngine.VIZ_VELOCITY
@@ -71,6 +71,8 @@ class WindTunnelView @JvmOverloads constructor(
     var useAbsolutePressure = false
     var coreCount = 4
     var simulationDtScale = 1.0f
+    private var simulationDX = 0.0025f
+    val currentSimulationDX: Float get() = simulationDX
 
     // Vector Graphics Overlay
     private val obstaclePath = Path()
@@ -116,7 +118,7 @@ class WindTunnelView @JvmOverloads constructor(
     }
 
     private val previewPaint = Paint().apply {
-        color = Color.WHITE
+        color = Color.GRAY
         style = Paint.Style.STROKE
         strokeWidth = dpToPx(2f)
         isAntiAlias = true
@@ -257,6 +259,7 @@ class WindTunnelView @JvmOverloads constructor(
                 
                 // Re-apply settings to the new engine instance
                 // DeltaTime must be set BEFORE Velocity for correct conversion
+                engine.setDX(simulationDX)
                 engine.setDeltaTime(0.000005f * simulationDtScale)
                 engine.setInletVelocity(currentPhysVelocity)
                 engine.setDensity(currentPhysDensity)
@@ -652,6 +655,14 @@ class WindTunnelView @JvmOverloads constructor(
         engine.setViscosity(viscosity)
     }
 
+    fun setSimulationDX(dx: Float) {
+        simulationDX = dx
+        engine.setDX(dx)
+        // Re-apply the physical velocity setting so the engine updates its
+        // internal lattice speed calculation using the new grid scale.
+        engine.setInletVelocity(currentPhysVelocity)
+    }
+
     fun getAirflowSpeed(): Float = currentPhysVelocity
 
     fun getDensity(): Float {
@@ -676,6 +687,8 @@ class WindTunnelView @JvmOverloads constructor(
         colorScheme = scheme
         engine.setColorScheme(scheme)
         scalePaint.shader = null // Force re-creation of gradient with new colors
+        // Standard (0) scheme uses black vector overlays, all others use white.
+        vectorPaint.color = if (scheme == 0) Color.BLACK else Color.GRAY
     }
 
     fun updateCoreCount(count: Int) {
@@ -697,6 +710,7 @@ class WindTunnelView @JvmOverloads constructor(
     fun getMaxAvailableCores(): Int = engine.getMaxCores()
 
     fun getSimWidth(): Int = simWidth
+    fun getSimHeight(): Int = simHeight
 
     fun getForceHistory(): List<ForceGraphView.ForcePoint> {
         return synchronized(forceHistory) {

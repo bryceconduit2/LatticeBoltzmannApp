@@ -85,7 +85,7 @@ struct ForceResult {
  */
 struct LBMEngine {
     enum VisualizationMode { VELOCITY = 0, PRESSURE = 1, TOTAL_PRESSURE = 2 };
-    enum BoundaryMode { PERIODIC = 0, NO_SLIP = 1, FREE_SLIP = 2, OPEN = 3 };
+    enum BoundaryMode { PERIODIC = 0, OPEN = 1 };
 
     int width, height;
     float uInlet = 0.06f;       // Current inlet velocity in lattice units
@@ -94,7 +94,7 @@ struct LBMEngine {
     const float SmagorinskyConstant = 0.16f; // Subgrid turbulence parameter
 
     // Physical calibration constants
-    const float dx = 0.0025f;     // Grid spacing (meters)
+    float dx = 0.0025f;     // Grid spacing (meters)
     float dt = 0.000005f;         // Time step (seconds)
     float rhoAir = 1.225f;        // Density (kg/m^3)
     float nuAir = 1.5e-5f;        // Kinematic viscosity (m^2/s)
@@ -282,7 +282,7 @@ struct LBMEngine {
                         if (nx < 0) nx = width - 1; else if (nx >= width) nx = 0;
                         if (ny < 0 || ny >= height) {
                             if (boundaryMode == PERIODIC) { if (ny < 0) ny = height - 1; else ny = 0; }
-                            else if (boundaryMode == OPEN) {
+                            else { // OPEN (Far-Field)
                                 // Far-Field Boundary (Infinity): Pin to ambient state (rho=1.0, u=uInlet)
                                 // but keep the non-equilibrium part to allow pressure waves to pass through.
                                 int ny_n = (ny < 0) ? 0 : height - 1;
@@ -305,7 +305,6 @@ struct LBMEngine {
                                 local_f[i] = feq_inf + (f_ptr[i][idx_n] - feq_n);
                                 continue;
                             }
-                            else { local_f[i] = f_ptr[opposite[i]][idx]; continue; }
                         }
                         const int srcIdx = ny * width + nx;
                         if (obs_ptr[srcIdx]) {
@@ -432,6 +431,39 @@ struct LBMEngine {
         aeroValid = (stepMinY > 0 && stepMaxY < height - 1);
 
         return {(float)totalForceX, -(float)totalForceY};
+    }
+
+    /**
+     * Rescales the entire fluid grid to maintain physical consistency when
+     * the simulation scale (dx) changes.
+     */
+    void rescaleVelocity(float factor) {
+        if (factor == 1.0f || factor <= 0.0f) return;
+        #pragma omp parallel for schedule(static) default(none) shared(width, height, factor, obstacles, f, fNew, ux_flow, uy_flow, weights, cxs, cys, numThreads)
+        for (int idx = 0; idx < width * height; idx++) {
+            if (obstacles[idx]) continue;
+            float rho = 0;
+            for (int i = 0; i < 9; i++) rho += f[i][idx];
+            float invRho = 1.0f / fmaxf(0.1f, rho);
+            float ux = (f[1][idx] - f[3][idx] + f[5][idx] - f[6][idx] - f[7][idx] + f[8][idx]) * invRho;
+            float uy = (f[2][idx] - f[4][idx] + f[5][idx] + f[6][idx] - f[7][idx] - f[8][idx]) * invRho;
+
+            float ux_n = ux * factor;
+            float uy_n = uy * factor;
+            ux_flow[idx] = ux_n; uy_flow[idx] = uy_n;
+
+            float u2sq_o = 1.5f * (ux * ux + uy * uy);
+            float u2sq_n = 1.5f * (ux_n * ux_n + uy_n * uy_n);
+
+            for (int i = 0; i < 9; i++) {
+                float cu_o = 3.0f * (cxs[i] * ux + cys[i] * uy);
+                float cu_n = 3.0f * (cxs[i] * ux_n + cys[i] * uy_n);
+                float feq_o = weights[i] * rho * (1.0f + cu_o + 0.5f * cu_o * cu_o - u2sq_o);
+                float feq_n = weights[i] * rho * (1.0f + cu_n + 0.5f * cu_n * cu_n - u2sq_n);
+                f[i][idx] = feq_n + (f[i][idx] - feq_o);
+                fNew[i][idx] = f[i][idx];
+            }
+        }
     }
 
     void updateColorLUT(int scheme) {
@@ -641,6 +673,18 @@ extern "C" JNIEXPORT void JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_addNa
 extern "C" JNIEXPORT void JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_setDensityNative(JNIEnv *env, jobject thiz, jlong ptr, jfloat d) { reinterpret_cast<LBMEngine*>(ptr)->rhoAir = d; }
 extern "C" JNIEXPORT void JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_setViscosityNative(JNIEnv *env, jobject thiz, jlong ptr, jfloat v) { reinterpret_cast<LBMEngine*>(ptr)->nuAir = v; }
 extern "C" JNIEXPORT void JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_setDeltaTimeNative(JNIEnv *env, jobject thiz, jlong ptr, jfloat dt) { reinterpret_cast<LBMEngine*>(ptr)->dt = dt; }
+extern "C" JNIEXPORT void JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_setDXNative(JNIEnv *env, jobject thiz, jlong ptr, jfloat dx) {
+    auto* e = reinterpret_cast<LBMEngine*>(ptr);
+    float old_dx = e->dx;
+    e->dx = dx;
+    // Rescale the current fluid velocity in the grid to maintain physical consistency
+    // New_u_lattice = Old_u_lattice * (Old_dx / New_dx)
+    if (old_dx > 0 && dx > 0) {
+        float factor = old_dx / dx;
+        e->rescaleVelocity(factor);
+        e->uInlet = e->uInlet * factor; // Instantly jump inlet state to avoid normalization lag
+    }
+}
 
 
 
@@ -681,17 +725,19 @@ extern "C" JNIEXPORT void JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_stepA
     // 3. RENDER DIRECTLY TO BITMAP PIXELS
     void* pixels; if (AndroidBitmap_lockPixels(env, bitmap, &pixels) < 0) return;
     auto* bmp = static_cast<uint32_t*>(pixels);
-    int w = e->width; int h = e->height; float invMaxV = 255.0f / (e->uInlet * 1.8f);
+    int w = e->width; int h = e->height;
+
+    // Normalization: Use the Target Velocity as the fixed reference for the color scale.
+    // This ensures that colors remain stable when dx or speed change.
+    float invMaxV = 255.0f / fmaxf(0.001f, e->uInletTarget * 1.8f);
+
     static const float invC[10] = { 0, 1.0f, 0.5f, 0.3333333f, 0.25f, 0.2f, 0.1666667f, 0.1428571f, 0.125f, 0.1111111f };
     const uint8_t* obs = e->obstacles.data(); const float* src = e->visualizationSource.data();
     float* sm = e->smoothedVelocityMag.data(); uint32_t* lut = e->colorLUT;
 
-    // Determine color for obstacles to prevent blur-bleed in HD mode
-    uint32_t obstacleColor = drawBlack ? 0xFF000000 : lut[0];
-
     // --- SPATIAL + TEMPORAL SMOOTHING PASS ---
     // Smooths out pixel aliasing and high-frequency numerical noise
-#pragma omp parallel for default(none) shared(obs, src, sm, bmp, w, h, invMaxV, invC, lut, e, obstacleColor, drawBlack) schedule(static) \
+#pragma omp parallel for default(none) shared(obs, src, sm, bmp, w, h, invMaxV, invC, lut, e, drawBlack) schedule(static) \
     num_threads(e->numThreads)
     for (int y = 0; y < h; y++) {
         bool y_edge = (y == 0 || y == h - 1);
@@ -710,14 +756,21 @@ extern "C" JNIEXPORT void JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_stepA
                     if (x < w-1 && !obs[idx+1]) { neighborSum += src[idx+1]; neighborCount++; }
 
                     // If we have fluid neighbors, use their average.
-                    // If we are deep inside a large wing, use the inlet velocity as a neutral filler.
-                    float dilatedV = (neighborCount > 0) ? (neighborSum / neighborCount) : e->uInlet;
+                    // Interior nodes use 0.0f (stationary) to ensure the boundary layer
+                    // correctly interpolates toward a no-slip condition.
+                    float dilatedV = (neighborCount > 0) ? (neighborSum / neighborCount) : 0.0f;
                     sm[idx] = sm[idx] * 0.7f + dilatedV * 0.3f;
-                    int ci = (int)(sm[idx] * ((e->vizMode == LBMEngine::VELOCITY) ? invMaxV : 255.0f));
-                    bmp[idx] = lut[std::max(0, std::min(255, ci))];
+
+                    if (e->colorScheme != 0) {
+                        bmp[idx] = 0xFFFFFFFF; // Non-standard schemes: solid white obstacles
+                    } else {
+                        // Standard scheme: Use black obstacles to provide high contrast.
+                        // This prevents obstacles from appearing Blue (lut[0]) in HD mode.
+                        bmp[idx] = 0xFF000000;
+                    }
                 } else {
                     sm[idx] = 0;
-                    bmp[idx] = 0xFF000000; // Standard Mode: Solid Black
+                    bmp[idx] = (e->colorScheme == 0) ? 0xFF000000 : 0xFFFFFFFF;
                 }
                 continue;
             }

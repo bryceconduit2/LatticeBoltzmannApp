@@ -11,22 +11,19 @@
     <string name="rb_mode_coef">Coefficients</string>
 
     <!-- Settings Menu -->
-    <string name="header_tunnel_size">Tunnel Size (Resolution)</string>
-    <string name="rb_tiny">Tiny (160x80 | 0.4m x 0.2m)</string>
-    <string name="rb_small">Small (200x100 | 0.5m x 0.25m)</string>
-    <string name="rb_medium">Medium (400x200 | 1.0m x 0.5m)</string>
-    <string name="rb_large">Large (600x300 | 1.5m x 0.75m)</string>
+    <string name="header_tunnel_size">Grid Size</string>
     <string name="btn_reset_defaults">Reset to Defaults</string>
 
     <string name="label_airflow_speed">Airflow Speed</string>
+    <string name="label_simulation_scale">Simulation Scale (dx)</string>
     <string name="label_fluid_density">Fluid Density</string>
     <string name="label_fluid_viscosity">Fluid Viscosity</string>
     <string name="label_physics_precision">Physics Precision (Time Step)</string>
 
     <string name="header_brush_shape">Brush Shape</string>
-    <string name="rb_circle">Circle Brush</string>
-    <string name="rb_square">Square Brush</string>
-    <string name="rb_naca">Wing / NACA Airfoil</string>
+    <string name="rb_circle">Circle</string>
+    <string name="rb_square">Square</string>
+    <string name="rb_naca">NACA Airfoil</string>
     <string name="label_select_profile">Select Profile</string>
 
     <string name="label_aoa">Angle of Attack (Wings)</string>
@@ -34,10 +31,10 @@
 
     <string name="header_visualization">Visualization Map</string>
     <string name="header_color_scheme">Contour Color Scheme</string>
-    <string name="rb_color_standard">Standard (Jet)</string>
-    <string name="rb_color_ironbow">Ironbow (Heat)</string>
+    <string name="rb_color_standard">Jet</string>
+    <string name="rb_color_ironbow">Heat</string>
     <string name="rb_color_grayscale">Grayscale</string>
-    <string name="rb_color_ocean">Biolume (Ocean)</string>
+    <string name="rb_color_ocean">Ocean</string>
     <string name="rb_viz_velocity">Velocity</string>
     <string name="rb_viz_pressure">Static Pressure</string>
     <string name="rb_viz_total">Total Pressure</string>
@@ -45,9 +42,7 @@
 
     <string name="header_boundaries">Boundary Conditions</string>
     <string name="rb_bnd_periodic">Periodic</string>
-    <string name="rb_bnd_no_slip">Solid Walls</string>
-    <string name="rb_bnd_free_slip">Symmetry/Smooth</string>
-    <string name="rb_bnd_open">Open Space (Infinity)</string>
+    <string name="rb_bnd_open">Open Space</string>
 
     <string name="sw_telemetry">Show Detailed Stats</string>
     <string name="sw_gridlines">Show Gridlines</string>

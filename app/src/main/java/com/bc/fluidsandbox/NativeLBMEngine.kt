@@ -21,9 +21,7 @@ class NativeLBMEngine(val width: Int, val height: Int) {
 
         // Boundary condition constants
         const val BND_PERIODIC = 0
-        const val BND_NO_SLIP = 1
-        const val BND_FREE_SLIP = 2
-        const val BND_OPEN = 3
+        const val BND_OPEN = 1
     }
 
     init {
@@ -150,6 +148,12 @@ class NativeLBMEngine(val width: Int, val height: Int) {
         }
     }
 
+    fun setDX(dx: Float) {
+        if (enginePtr != 0L) {
+            setDXNative(enginePtr, dx)
+        }
+    }
+
     // --- Data Retrieval Methods for Telemetry & Graphs ---
 
     fun getInletVelocity(): Float {
@@ -243,6 +247,7 @@ class NativeLBMEngine(val width: Int, val height: Int) {
     private external fun setDensityNative(ptr: Long, density: Float)
     private external fun setViscosityNative(ptr: Long, viscosity: Float)
     private external fun setDeltaTimeNative(ptr: Long, dt: Float)
+    private external fun setDXNative(ptr: Long, dx: Float)
     private external fun setVisualizationModeNative(ptr: Long, mode: Int)
     private external fun setBoundaryModeNative(ptr: Long, mode: Int)
     private external fun setColorSchemeNative(ptr: Long, scheme: Int)

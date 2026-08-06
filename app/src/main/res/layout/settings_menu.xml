@@ -27,49 +27,35 @@
             android:text="@string/btn_reset_defaults"
             android:textSize="12sp" />
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/header_tunnel_size"
-            android:textColor="@android:color/white"
-            android:textSize="18sp"
-            android:textStyle="bold" />
-
-        <RadioGroup
-            android:id="@+id/rgSize"
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical">
+            android:orientation="horizontal">
 
-            <RadioButton
-                android:id="@+id/rbTiny"
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/header_tunnel_size"
+                android:textColor="@android:color/white"
+                android:textSize="18sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tvResolutionValue"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="@string/rb_tiny"
-                android:textColor="@android:color/white" />
+                android:text="400x200"
+                android:textColor="@android:color/white"
+                android:textStyle="bold" />
+        </LinearLayout>
 
-            <RadioButton
-                android:id="@+id/rbSmall"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/rb_small"
-                android:textColor="@android:color/white" />
-
-            <RadioButton
-                android:id="@+id/rbMedium"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:checked="true"
-                android:text="@string/rb_medium"
-                android:textColor="@android:color/white" />
-
-            <RadioButton
-                android:id="@+id/rbLarge"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/rb_large"
-                android:textColor="@android:color/white" />
-        </RadioGroup>
+        <SeekBar
+            android:id="@+id/sbResolution"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:max="840"
+            android:progress="240" />
 
         <Space
             android:layout_width="match_parent"
@@ -101,6 +87,37 @@
             android:layout_height="wrap_content"
             android:max="200"
             android:progress="120" />
+
+        <Space
+            android:layout_width="match_parent"
+            android:layout_height="16dp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/label_simulation_scale"
+                android:textColor="@android:color/white" />
+
+            <TextView
+                android:id="@+id/tvDXValue"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="2.5mm"
+                android:textColor="@android:color/white" />
+        </LinearLayout>
+
+        <SeekBar
+            android:id="@+id/sbDX"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:max="195"
+            android:progress="20" />
 
         <Space
             android:layout_width="match_parent"
@@ -319,7 +336,7 @@
             android:id="@+id/sbBrushSize"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:max="40"
+            android:max="80"
             android:progress="8" />
 
         <Space
@@ -452,20 +469,6 @@
                 android:textColor="@android:color/white" />
 
             <RadioButton
-                android:id="@+id/rbBndNoSlip"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/rb_bnd_no_slip"
-                android:textColor="@android:color/white" />
-
-            <RadioButton
-                android:id="@+id/rbBndFreeSlip"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/rb_bnd_free_slip"
-                android:textColor="@android:color/white" />
-
-            <RadioButton
                 android:id="@+id/rbBndOpen"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -489,8 +492,8 @@
             android:id="@+id/swSmoothHD"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:checked="true"
-            android:text="Smooth HD Graphics (Vector Path)"
+            android:checked="false"
+            android:text="Smooth HD Graphics (experimental)"
             android:textColor="@android:color/white" />
 
         <androidx.appcompat.widget.SwitchCompat
