@@ -4,7 +4,7 @@
     <selectionStates>
       <SelectionState runConfigName="app">
         <option name="selectionMode" value="DROPDOWN" />
-        <DropdownSelection timestamp="2026-08-06T14:21:27.537352300Z">
+        <DropdownSelection timestamp="2026-08-06T18:41:53.829959200Z">
           <Target type="DEFAULT_BOOT">
             <handle>
               <DeviceId pluginId="LocalEmulator" identifier="path=C:\Users\bryce\.android\avd\Pixel_3a_API_34_extension_level_7_x86_64.avd" />
@@ -15,7 +15,7 @@
       </SelectionState>
       <SelectionState runConfigName="PhysicsAccuracyTest">
         <option name="selectionMode" value="DROPDOWN" />
-        <DropdownSelection timestamp="2026-08-06T10:43:08.752795100Z">
+        <DropdownSelection timestamp="2026-08-06T18:42:02.659708Z">
           <Target type="DEFAULT_BOOT">
             <handle>
               <DeviceId pluginId="LocalEmulator" identifier="path=C:\Users\bryce\.android\avd\Pixel_3a_API_34_extension_level_7_x86_64.avd" />

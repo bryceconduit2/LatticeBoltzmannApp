@@ -34,6 +34,7 @@ class WindTunnelView @JvmOverloads constructor(
     // Multi-threading state
     private var thread: Thread? = null
     @Volatile private var running = false
+    @Volatile var isSimulationRunning = true
 
     // --- Touch Interaction State ---
     @Volatile private var isHolding = false
@@ -325,20 +326,23 @@ class WindTunnelView @JvmOverloads constructor(
             lastTime = now
 
             // TRIGGER THE C++ PHYSICS KERNEL
-            engine.stepAndRender(bitmap, stepsPerFrame, !useSmoothHD)
+            val stepsToRun = if (isSimulationRunning) stepsPerFrame else 0
+            engine.stepAndRender(bitmap, stepsToRun, !useSmoothHD)
             
             // STREAM TELEMETRY TO GRAPH
-            val elapsedSec = engine.getTotalSteps() * 0.000005f
-            val dragN = engine.getDragForce()
-            val liftN = engine.getLiftForce()
-            val cd = engine.getInstantDragCoefficient()
-            val cl = engine.getInstantLiftCoefficient()
-            val isValid = engine.isAerodynamicsValid()
-            
-            synchronized(forceHistory) {
-                forceHistory.add(ForceGraphView.ForcePoint(elapsedSec, dragN, liftN, cd, cl, isValid))
-                if (forceHistory.size > maxHistorySize) {
-                    forceHistory.removeAt(0)
+            if (isSimulationRunning) {
+                val elapsedSec = engine.getTotalSteps() * 0.000005f
+                val dragN = engine.getDragForce()
+                val liftN = engine.getLiftForce()
+                val cd = engine.getInstantDragCoefficient()
+                val cl = engine.getInstantLiftCoefficient()
+                val isValid = engine.isAerodynamicsValid()
+                
+                synchronized(forceHistory) {
+                    forceHistory.add(ForceGraphView.ForcePoint(elapsedSec, dragN, liftN, cd, cl, isValid))
+                    if (forceHistory.size > maxHistorySize) {
+                        forceHistory.removeAt(0)
+                    }
                 }
             }
 
@@ -430,8 +434,23 @@ class WindTunnelView @JvmOverloads constructor(
                     val activeCores = getActiveCoreCount()
 
                     canvas.drawText(String.format(Locale.US, "Tunnel: %.1fm x %.1fm (1.0m Depth)", physW, physH), telemetryPadding, telemetryPadding * 1.5f + telemetrySpacing * 4.5f, textPaint)
-                    canvas.drawText(String.format(Locale.US, "Performance: %.0f FPS | %.0f Steps/s", fps, sps), telemetryPadding, telemetryPadding * 1.5f + telemetrySpacing * 5.5f, textPaint)
+                    val perfText = if (isSimulationRunning) {
+                        String.format(Locale.US, "Performance: %.0f FPS | %.0f Steps/s", fps, sps)
+                    } else {
+                        String.format(Locale.US, "Performance: %.0f FPS (Physics Paused)", fps)
+                    }
+                    canvas.drawText(perfText, telemetryPadding, telemetryPadding * 1.5f + telemetrySpacing * 5.5f, textPaint)
                     canvas.drawText(String.format(Locale.US, "Active Cores: %d", activeCores), telemetryPadding, telemetryPadding * 1.5f + telemetrySpacing * 6.5f, textPaint)
+                }
+
+                if (!isSimulationRunning) {
+                    val pausedText = resources.getString(R.string.status_paused)
+                    val pausedPaint = Paint(textPaint).apply {
+                        textSize = spToPx(16f)
+                        textAlign = Paint.Align.LEFT
+                        typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+                    }
+                    canvas.drawText(pausedText, telemetryPadding, height - telemetryPadding, pausedPaint)
                 }
 
                 // 5. Draw Velocity Scale Bar

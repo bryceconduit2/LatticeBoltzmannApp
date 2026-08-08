@@ -32,6 +32,7 @@ class MainActivity : AppCompatActivity() {
         val btnReset = findViewById<Button>(R.id.btnReset)
         val btnSettings = findViewById<Button>(R.id.btnSettings)
         val btnGraph = findViewById<Button>(R.id.btnGraph)
+        val btnPause = findViewById<Button>(R.id.btnPause)
         
         val graphContainer = findViewById<android.view.ViewGroup>(R.id.graphContainer)
         val forceGraphView = findViewById<ForceGraphView>(R.id.forceGraphView)
@@ -41,6 +42,15 @@ class MainActivity : AppCompatActivity() {
         // --- Simulation Controls ---
         btnReset.setOnClickListener {
             windTunnelView.reset() // Clears obstacles and wakes
+        }
+
+        btnPause.setOnClickListener {
+            windTunnelView.isSimulationRunning = !windTunnelView.isSimulationRunning
+            btnPause.text = if (windTunnelView.isSimulationRunning) {
+                getString(R.string.btn_pause)
+            } else {
+                getString(R.string.btn_play)
+            }
         }
 
         btnSettings.setOnClickListener {
