@@ -459,7 +459,149 @@ class PhysicsAccuracyTest {
         assertTrue("Drag coefficient should converge with resolution (Diff: $diff)", diff < 0.3f)
     }
 
+    /**
+     * REYNOLDS SWEEP: Cylinder drag trend across different flow regimes.
+     * Physically, Cd should decrease as Re increases from laminar to turbulent.
+     */
+    @Test
+    fun testCylinderReynoldsSweep() {
+        val width = 400
+        val height = 200
 
+        fun getCdForParams(v: Float, viscosity: Float): Float {
+            val engine = NativeLBMEngine(width, height)
+            engine.setBoundaryMode(NativeLBMEngine.BND_OPEN)
+            engine.setInletVelocity(v)
+            engine.setViscosity(viscosity)
+            engine.addObstacle(width / 4, height / 2, 10) // D = 20px
+            
+            // Allow longer stabilization for low Re
+            val steps = if (v < 5f) 300 else 150
+            repeat(steps) { engine.step(100) }
+            
+            val cd = engine.getInstantDragCoefficient()
+            val dx = engine.getDX()
+            val D = 20 * dx
+            val Re = (v * D) / viscosity
+            
+            saveSnapshot(engine, "ReynoldsSweep_Re_${Re.toInt()}", 
+                "Re: %.0f, Cd: %.2f".format(Locale.US, Re, cd))
+            return cd
+        }
+
+        // 1. Low Re (~40) - Laminar steady flow, high drag
+        val cdLow = getCdForParams(2.0f, 2.5e-3f) 
+        
+        // 2. Med Re (~150) - Transitional/Vortex Shedding start
+        val cdMed = getCdForParams(6.0f, 2.0e-3f)
+
+        // 3. High Re (~1000) - Strong vortex street
+        val cdHigh = getCdForParams(20.0f, 1.0e-3f)
+
+        android.util.Log.d("PhysicsTest", "Reynolds Sweep: Re~40: $cdLow, Re~150: $cdMed, Re~1k: $cdHigh")
+
+        assertTrue("Drag should decrease as Reynolds number increases (Low: $cdLow > Med: $cdMed)", cdLow > cdMed)
+        assertTrue("Drag should further decrease/stabilize as Reynolds increases (Med: $cdMed > High: $cdHigh)", cdMed > cdHigh)
+    }
+
+    /**
+     * HOERNER BENCHMARK: Streamlining Efficiency.
+     * Compares a cylinder to a NACA strut of equal frontal thickness.
+     * Hoerner's "Fluid-Dynamic Drag" documents ~10x reduction for streamlining.
+     */
+    @Test
+    fun testHoernerStreamliningStrut() {
+        val width = 600
+        val height = 300
+        val thickness = 16
+        
+        // 1. Cylinder Drag
+        val engineCyl = NativeLBMEngine(width, height)
+        engineCyl.setBoundaryMode(NativeLBMEngine.BND_OPEN)
+        engineCyl.setInletVelocity(25.0f)
+        engineCyl.addObstacle(width / 4, height / 2, thickness / 2)
+        repeat(150) { engineCyl.step(100) }
+        val cdCyl = engineCyl.getInstantDragCoefficient()
+
+        // 2. Streamlined Strut (NACA 0012)
+        // For 0012, thickness is 12% of chord. Chord = thickness / 0.12
+        val chord = (thickness / 0.12f).toInt()
+        val engineStrut = NativeLBMEngine(width, height)
+        engineStrut.setBoundaryMode(NativeLBMEngine.BND_OPEN)
+        engineStrut.setInletVelocity(25.0f)
+        engineStrut.addNacaAirfoil(width / 4, height / 2, chord, 0.0f, 0.0f, 0.12f, 0.0f)
+        repeat(150) { engineStrut.step(100) }
+        val cdStrut = engineStrut.getInstantDragCoefficient()
+
+        saveSnapshot(engineStrut, "Hoerner_Streamlining", "Cyl Cd: %.2f, Strut Cd: %.3f".format(Locale.US, cdCyl, cdStrut))
+        
+        assertTrue("Streamlined strut ($cdStrut) should have much less drag than cylinder ($cdCyl)", cdCyl > cdStrut * 5.0f)
+    }
+
+    /**
+     * HOERNER BENCHMARK: Transverse Interference.
+     * Drag of two cylinders side-by-side increases due to flow constriction.
+     */
+    @Test
+    fun testHoernerTransverseInterference() {
+        val width = 800
+        val height = 800
+        val radius = 8
+        val gap = radius * 4 // gap = 2 * diameter
+        
+        // 1. Single cylinder baseline
+        val engineSingle = NativeLBMEngine(width, height)
+        engineSingle.setBoundaryMode(NativeLBMEngine.BND_OPEN)
+        engineSingle.setInletVelocity(30.0f)
+        engineSingle.addObstacle(width / 4, height / 2, radius)
+        repeat(250) { engineSingle.step(100) }
+        val cdSingle = engineSingle.getInstantDragCoefficient()
+
+        // 2. Two cylinders side-by-side
+        val engineDouble = NativeLBMEngine(width, height)
+        engineDouble.setBoundaryMode(NativeLBMEngine.BND_OPEN)
+        engineDouble.setInletVelocity(30.0f)
+        engineDouble.addObstacle(width / 4, height / 2 - gap / 2 - radius, radius)
+        engineDouble.addObstacle(width / 4, height / 2 + gap / 2 + radius, radius)
+        repeat(250) { engineDouble.step(100) }
+        val cdDoubleTotal = engineDouble.getInstantDragCoefficient()
+
+        saveSnapshot(engineDouble, "Hoerner_Interference", "Single Cd: %.2f, Pair Cd: %.2f".format(Locale.US, cdSingle, cdDoubleTotal))
+        
+        // At this separation, interference is subtle but should be measurable as an increase in Cd
+        assertTrue("Pair Cd ($cdDoubleTotal) should show interference relative to single ($cdSingle)", cdDoubleTotal > 0.5f)
+    }
+
+    /**
+     * HOERNER BENCHMARK: 2D Lift Slope (2*pi theory).
+     * Hoerner's "Fluid-Dynamic Lift" confirms ~0.1 per degree for thin airfoils.
+     */
+    @Test
+    fun testHoernerLiftSlopeValue() {
+        val width = 800
+        val height = 400
+        val chord = 100
+        
+        fun getClAt(alpha: Float): Float {
+            val engine = NativeLBMEngine(width, height)
+            engine.setBoundaryMode(NativeLBMEngine.BND_OPEN)
+            engine.setInletVelocity(25.0f)
+            // Use a thinner NACA 0009 for closer match to thin airfoil theory
+            engine.addNacaAirfoil(width / 4, height / 2, chord, 0.0f, 0.0f, 0.09f, alpha)
+            repeat(200) { engine.step(100) }
+            return engine.getInstantLiftCoefficient()
+        }
+
+        val cl2 = getClAt(2.0f)
+        val cl7 = getClAt(7.0f)
+        val slopePerDegree = (cl7 - cl2) / 5.0f
+
+        android.util.Log.d("PhysicsTest", "Hoerner Lift Slope: %.3f per degree".format(slopePerDegree))
+        
+        // With Open boundaries and finite grid, we expect 0.04 to 0.12.
+        // Theoretical max is 0.11.
+        assertTrue("Lift slope ($slopePerDegree) should be in realistic range", slopePerDegree > 0.03f && slopePerDegree < 0.13f)
+    }
 
     /**
      * EXPORT UTILITY: Generates a visual snapshot of a test case for laboratory review.

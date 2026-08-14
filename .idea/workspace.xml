@@ -67,6 +67,7 @@
       <change beforePath="$PROJECT_DIR$/.idea/gradle.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/gradle.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/migrations.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/migrations.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/planningMode.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/planningMode.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/runConfigurations.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/runConfigurations.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
@@ -121,8 +122,6 @@
       <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/arm64-v8a/.cmake/api/v1/reply/directory-.-RelWithDebInfo-d0094a50bb2071803777.json" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/arm64-v8a/.cmake/api/v1/reply/directory-.-RelWithDebInfo-d0094a50bb2071803777.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/arm64-v8a/.cmake/api/v1/reply/index-2026-08-05T14-37-37-0553.json" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/arm64-v8a/.cmake/api/v1/reply/index-2026-08-05T14-37-37-0553.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/arm64-v8a/.cmake/api/v1/reply/target-fluidsandbox-RelWithDebInfo-021bcdf987c463b202f6.json" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/arm64-v8a/.cmake/api/v1/reply/target-fluidsandbox-RelWithDebInfo-021bcdf987c463b202f6.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/arm64-v8a/.ninja_deps" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/arm64-v8a/.ninja_deps" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/arm64-v8a/.ninja_log" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/arm64-v8a/.ninja_log" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/arm64-v8a/CMakeCache.txt" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/arm64-v8a/CMakeCache.txt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/arm64-v8a/CMakeFiles/3.22.1-g37088a8-dirty/CMakeCCompiler.cmake" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/arm64-v8a/CMakeFiles/3.22.1-g37088a8-dirty/CMakeCCompiler.cmake" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/arm64-v8a/CMakeFiles/3.22.1-g37088a8-dirty/CMakeCXXCompiler.cmake" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/arm64-v8a/CMakeFiles/3.22.1-g37088a8-dirty/CMakeCXXCompiler.cmake" afterDir="false" />
@@ -135,7 +134,6 @@
       <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/arm64-v8a/CMakeFiles/FindOpenMP/OpenMPTryFlag.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/arm64-v8a/CMakeFiles/FindOpenMP/OpenMPTryFlag.cpp" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/arm64-v8a/CMakeFiles/TargetDirectories.txt" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/arm64-v8a/CMakeFiles/TargetDirectories.txt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/arm64-v8a/CMakeFiles/cmake.check_cache" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/arm64-v8a/CMakeFiles/cmake.check_cache" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/arm64-v8a/CMakeFiles/fluidsandbox.dir/lbm_engine.cpp.o" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/arm64-v8a/CMakeFiles/fluidsandbox.dir/lbm_engine.cpp.o" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/arm64-v8a/CMakeFiles/rules.ninja" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/arm64-v8a/CMakeFiles/rules.ninja" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/arm64-v8a/build.ninja" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/arm64-v8a/build.ninja" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/arm64-v8a/cmake_install.cmake" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/arm64-v8a/cmake_install.cmake" afterDir="false" />
@@ -146,8 +144,6 @@
       <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/x86_64/.cmake/api/v1/reply/directory-.-RelWithDebInfo-d0094a50bb2071803777.json" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/x86_64/.cmake/api/v1/reply/directory-.-RelWithDebInfo-d0094a50bb2071803777.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/x86_64/.cmake/api/v1/reply/index-2026-08-05T14-37-43-0222.json" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/x86_64/.cmake/api/v1/reply/index-2026-08-05T14-37-43-0222.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/x86_64/.cmake/api/v1/reply/target-fluidsandbox-RelWithDebInfo-df72f300afe8dd6e7a06.json" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/x86_64/.cmake/api/v1/reply/target-fluidsandbox-RelWithDebInfo-df72f300afe8dd6e7a06.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/x86_64/.ninja_deps" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/x86_64/.ninja_deps" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/x86_64/.ninja_log" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/x86_64/.ninja_log" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/x86_64/CMakeCache.txt" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/x86_64/CMakeCache.txt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/x86_64/CMakeFiles/3.22.1-g37088a8-dirty/CMakeCCompiler.cmake" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/x86_64/CMakeFiles/3.22.1-g37088a8-dirty/CMakeCCompiler.cmake" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/x86_64/CMakeFiles/3.22.1-g37088a8-dirty/CMakeCXXCompiler.cmake" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/x86_64/CMakeFiles/3.22.1-g37088a8-dirty/CMakeCXXCompiler.cmake" afterDir="false" />
@@ -160,7 +156,6 @@
       <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/x86_64/CMakeFiles/FindOpenMP/OpenMPTryFlag.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/x86_64/CMakeFiles/FindOpenMP/OpenMPTryFlag.cpp" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/x86_64/CMakeFiles/TargetDirectories.txt" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/x86_64/CMakeFiles/TargetDirectories.txt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/x86_64/CMakeFiles/cmake.check_cache" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/x86_64/CMakeFiles/cmake.check_cache" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/x86_64/CMakeFiles/fluidsandbox.dir/lbm_engine.cpp.o" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/x86_64/CMakeFiles/fluidsandbox.dir/lbm_engine.cpp.o" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/x86_64/CMakeFiles/rules.ninja" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/x86_64/CMakeFiles/rules.ninja" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/x86_64/build.ninja" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/x86_64/build.ninja" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/x86_64/cmake_install.cmake" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/RelWithDebInfo/1w617ec2/x86_64/cmake_install.cmake" afterDir="false" />
@@ -171,7 +166,6 @@
       <change beforePath="$PROJECT_DIR$/app/.cxx/tools/release/x86_64/compile_commands.json" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/tools/release/x86_64/compile_commands.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/build.gradle.kts" beforeDir="false" afterPath="$PROJECT_DIR$/app/build.gradle.kts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/proguard-rules.pro" beforeDir="false" afterPath="$PROJECT_DIR$/app/proguard-rules.pro" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/release/app-release.aab" beforeDir="false" afterPath="$PROJECT_DIR$/app/release/app-release.aab" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/src/androidTest/AndroidManifest.xml" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/androidTest/AndroidManifest.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/src/androidTest/java/com/bc/fluidsandbox/PhysicsAccuracyTest.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/androidTest/java/com/bc/fluidsandbox/PhysicsAccuracyTest.kt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/src/main/AndroidManifest.xml" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/AndroidManifest.xml" afterDir="false" />
@@ -280,7 +274,7 @@
       <recent name="com.bc.fluidsandbox" />
     </key>
   </component>
-  <component name="RunManager" selected="Android App.app">
+  <component name="RunManager" selected="Android Instrumented Tests.PhysicsAccuracyTest">
     <configuration name="app" type="AndroidRunConfigurationType" factoryName="Android App" activateToolWindowBeforeRun="false">
       <module name="Fluid_Sandbox.app" />
       <option name="ANDROID_RUN_CONFIGURATION_SCHEMA_VERSION" value="1" />
