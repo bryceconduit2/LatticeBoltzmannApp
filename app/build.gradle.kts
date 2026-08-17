@@ -5,13 +5,13 @@ plugins {
 
 android {
     namespace = "com.bc.fluidsandbox"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.bc.fluidsandbox"
         minSdk = 26
-        targetSdk = 35
-        versionCode = 8
+        targetSdk = 36
+        versionCode = 9
         versionName = "1.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
