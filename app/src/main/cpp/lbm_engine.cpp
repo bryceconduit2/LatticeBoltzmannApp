@@ -331,42 +331,49 @@ struct LBMEngine {
                     }
                 }
 
+                // 1. Calculate Hydrodynamic Moments (Density and Momentum)
                 const float rho = local_f[0] + local_f[1] + local_f[2] + local_f[3] + local_f[4] + local_f[5] + local_f[6] + local_f[7] + local_f[8];
                 const float invRho = 1.0f / fmaxf(0.1f, rho);
-                float ux = (local_f[1] - local_f[3] + local_f[5] - local_f[6] - local_f[7] + local_f[8]) * invRho;
-                float uy = (local_f[2] - local_f[4] + local_f[5] + local_f[6] - local_f[7] - local_f[8]) * invRho;
+                const float jx = local_f[1] - local_f[3] + local_f[5] - local_f[6] - local_f[7] + local_f[8];
+                const float jy = local_f[2] - local_f[4] + local_f[5] + local_f[6] - local_f[7] - local_f[8];
+                float ux = jx * invRho;
+                float uy = jy * invRho;
                 float vMag2 = ux * ux + uy * uy;
+                // Velocity limiter for extreme stability at Mach numbers > 0.4
                 if (vMag2 > 0.2025f) { float s = 0.45f / sqrtf(vMag2); ux *= s; uy *= s; vMag2 = 0.2025f; }
 
-                const float row_w_9 = rho * W1; const float row_w_36 = rho * W2;
-                const float one_minus_15u2 = 1.0f - 1.5f * vMag2;
-                const float ux3 = 3.0f * ux; const float uy3 = 3.0f * uy;
-                const float ux9 = 4.5f * ux * ux; const float uy9 = 4.5f * uy * uy;
-                const float uxy9 = 9.0f * ux * uy;
+                // 2. Multi-Relaxation Time (MRT) Collision
+                // Forward Transformation: Dist (f) -> Moment (m) Space
+                // d'Humieres basis for D2Q9
+                float m[9];
+                m[0] = rho;
+                m[1] = -4.0f*local_f[0] - (local_f[1]+local_f[2]+local_f[3]+local_f[4]) + 2.0f*(local_f[5]+local_f[6]+local_f[7]+local_f[8]);
+                m[2] = 4.0f*local_f[0] - 2.0f*(local_f[1]+local_f[2]+local_f[3]+local_f[4]) + (local_f[5]+local_f[6]+local_f[7]+local_f[8]);
+                m[3] = jx;
+                m[4] = -2.0f*local_f[1] + 2.0f*local_f[3] + local_f[5] - local_f[6] - local_f[7] + local_f[8];
+                m[5] = jy;
+                m[6] = -2.0f*local_f[2] + 2.0f*local_f[4] + local_f[5] + local_f[6] - local_f[7] - local_f[8];
+                m[7] = local_f[1] - local_f[2] + local_f[3] - local_f[4];
+                m[8] = local_f[5] - local_f[6] + local_f[7] - local_f[8];
 
-                float feq[9];
-                feq[0] = rho * W0 * one_minus_15u2;
-                feq[1] = row_w_9 * (one_minus_15u2 + ux3 + ux9);
-                feq[2] = row_w_9 * (one_minus_15u2 + uy3 + uy9);
-                feq[3] = row_w_9 * (one_minus_15u2 - ux3 + ux9);
-                feq[4] = row_w_9 * (one_minus_15u2 - uy3 + uy9);
-                const float common_diag = one_minus_15u2 + ux9 + uy9;
-                feq[5] = row_w_36 * (common_diag + ux3 + uy3 + uxy9);
-                feq[6] = row_w_36 * (common_diag - ux3 + uy3 - uxy9);
-                feq[7] = row_w_36 * (common_diag - ux3 - uy3 + uxy9);
-                feq[8] = row_w_36 * (common_diag + ux3 - uy3 - uxy9);
+                // Equilibrium Moments (m_eq)
+                float m_eq[9];
+                float r_u2 = rho * vMag2;
+                m_eq[0] = rho;
+                m_eq[1] = -2.0f*rho + 3.0f*r_u2;
+                m_eq[2] = rho - 3.0f*r_u2;
+                m_eq[3] = jx; m_eq[4] = -jx; m_eq[5] = jy; m_eq[6] = -jy;
+                m_eq[7] = (jx*jx - jy*jy) * invRho;
+                m_eq[8] = jx * jy * invRho;
 
-                float pixx = (local_f[1]-feq[1]) + (local_f[3]-feq[3]) + (local_f[5]-feq[5]) + (local_f[6]-feq[6]) + (local_f[7]-feq[7]) + (local_f[8]-feq[8]);
-                float piyy = (local_f[2]-feq[2]) + (local_f[4]-feq[4]) + (local_f[5]-feq[5]) + (local_f[6]-feq[6]) + (local_f[7]-feq[7]) + (local_f[8]-feq[8]);
-                float pixy = (local_f[5]-feq[5]) - (local_f[6]-feq[6]) + (local_f[7]-feq[7]) - (local_f[8]-feq[8]);
-
+                // 3. Subgrid Turbulence (WALE Model)
                 float nu_t = 0;
                 if (x > 0 && x < width - 1 && y > 0 && y < height - 1) {
                     float g11 = (ux_f[idx + 1] - ux_f[idx - 1]) * 0.5f;
                     float g12 = (ux_f[idx + width] - ux_f[idx - width]) * 0.5f;
                     float g21 = (uy_f[idx + 1] - uy_f[idx - 1]) * 0.5f;
                     float g22 = (uy_f[idx + width] - uy_f[idx - width]) * 0.5f;
-                    float sd11 = g11 * g11 + g12 * g21; float sd22 = g21 * g12 + g22 * g22;
+                      float sd11 = g11 * g11 + g12 * g21; float sd22 = g21 * g12 + g22 * g22;
                     float sd12 = 0.5f * (g11 * g12 + g12 * g22 + g21 * g11 + g22 * g21);
                     float trSd = sd11 + sd22; float Sd11 = sd11 - 0.5f * trSd; float Sd22 = sd22 - 0.5f * trSd;
                     float Sd2 = Sd11 * Sd11 + Sd22 * Sd22 + 2.0f * sd12 * sd12;
@@ -375,24 +382,48 @@ struct LBMEngine {
                         const float cw = 0.325f;
                         float sd2_15 = Sd2 * sqrtf(Sd2);
                         float s2_25 = S2 * S2 * sqrtf(S2);
-                        float sd2_125 = Sd2 * sqrtf(sqrtf(Sd2)); // Correct x^1.25 scaling
+                        float sd2_125 = Sd2 * sqrtf(sqrtf(Sd2));
                         nu_t = (cw * cw) * sd2_15 / (s2_25 + sd2_125);
                     }
                 }
+                const float s_shear = 1.0f / fmaxf(tau_0 + 3.0f * nu_t, 0.505f);
 
-                const float tau_eff = tau_0 + 3.0f * nu_t;
-                const float one_minus_invTau = 1.0f - (1.0f / fmaxf(tau_eff, 0.505f));
-                const float common_reg = one_minus_invTau * regFactor;
-                const float reg_pixx = common_reg * (pixx * (1.0f - cs2) - piyy * cs2);
-                const float reg_piyy = common_reg * (-pixx * cs2 + piyy * (1.0f - cs2));
-                const float reg_pixy = common_reg * 2.0f * pixy;
-                const float reg_diag = 2.0f * (reg_pixx + reg_piyy);
+                // 4. Collision in Moment Space
+                // Relax ghost modes for stability (s1, s2, s4, s6)
+                m[1] -= 1.1f * (m[1] - m_eq[1]);
+                m[2] -= 1.0f * (m[2] - m_eq[2]);
+                m[4] -= 1.2f * (m[4] - m_eq[4]);
+                m[6] -= 1.2f * (m[6] - m_eq[6]);
+                m[7] -= s_shear * (m[7] - m_eq[7]);
+                m[8] -= s_shear * (m[8] - m_eq[8]);
 
-                fn_ptr[0][idx] = feq[0] + W0 * common_reg * (-cs2 * (pixx + piyy));
-                fn_ptr[1][idx] = feq[1] + W1 * reg_pixx; fn_ptr[2][idx] = feq[2] + W1 * reg_piyy;
-                fn_ptr[3][idx] = feq[3] + W1 * reg_pixx; fn_ptr[4][idx] = feq[4] + W1 * reg_piyy;
-                fn_ptr[5][idx] = feq[5] + W2 * (reg_diag + reg_pixy); fn_ptr[6][idx] = feq[6] + W2 * (reg_diag - reg_pixy);
-                fn_ptr[7][idx] = feq[7] + W2 * (reg_diag + reg_pixy); fn_ptr[8][idx] = feq[8] + W2 * (reg_diag - reg_pixy);
+                // 5. Inverse Transformation: Moment (m) -> Dist (f)
+                // Exact d'Humieres inverse for D2Q9
+                fn_ptr[0][idx] = (1.0f/9.0f) * m[0] - (1.0f/9.0f)  * m[1] + (1.0f/9.0f)  * m[2];
+                fn_ptr[1][idx] = (1.0f/9.0f) * m[0] - (1.0f/36.0f) * m[1] - (1.0f/18.0f) * m[2] + (1.0f/6.0f) * m[3] - (1.0f/6.0f) * m[4] + (1.0f/4.0f) * m[7];
+                fn_ptr[2][idx] = (1.0f/9.0f) * m[0] - (1.0f/36.0f) * m[1] - (1.0f/18.0f) * m[2] + (1.0f/6.0f) * m[5] - (1.0f/6.0f) * m[6] - (1.0f/4.0f) * m[7];
+                fn_ptr[3][idx] = (1.0f/9.0f) * m[0] - (1.0f/36.0f) * m[1] - (1.0f/18.0f) * m[2] - (1.0f/6.0f) * m[3] + (1.0f/6.0f) * m[4] + (1.0f/4.0f) * m[7];
+                fn_ptr[4][idx] = (1.0f/9.0f) * m[0] - (1.0f/36.0f) * m[1] - (1.0f/18.0f) * m[2] - (1.0f/6.0f) * m[5] + (1.0f/6.0f) * m[6] - (1.0f/4.0f) * m[7];
+                fn_ptr[5][idx] = (1.0f/9.0f) * m[0] + (1.0f/18.0f) * m[1] + (1.0f/36.0f) * m[2] + (1.0f/6.0f) * m[3] + (1.0f/12.0f) * m[4] + (1.0f/6.0f) * m[5] + (1.0f/12.0f) * m[6] + (1.0f/4.0f) * m[8];
+                fn_ptr[6][idx] = (1.0f/9.0f) * m[0] + (1.0f/18.0f) * m[1] + (1.0f/36.0f) * m[2] - (1.0f/6.0f) * m[3] - (1.0f/12.0f) * m[4] + (1.0f/6.0f) * m[5] + (1.0f/12.0f) * m[6] - (1.0f/4.0f) * m[8];
+                fn_ptr[7][idx] = (1.0f/9.0f) * m[0] + (1.0f/18.0f) * m[1] + (1.0f/36.0f) * m[2] - (1.0f/6.0f) * m[3] - (1.0f/12.0f) * m[4] - (1.0f/6.0f) * m[5] - (1.0f/12.0f) * m[6] + (1.0f/4.0f) * m[8];
+                fn_ptr[8][idx] = (1.0f/9.0f) * m[0] + (1.0f/18.0f) * m[1] + (1.0f/36.0f) * m[2] + (1.0f/6.0f) * m[3] + (1.0f/12.0f) * m[4] - (1.0f/6.0f) * m[5] - (1.0f/12.0f) * m[6] - (1.0f/4.0f) * m[8];
+
+                ux_f[idx] = ux; uy_f[idx] = uy;
+
+                if (updateViz) {
+                    float vMag = sqrtf(vMag2); velocityMag[idx] = vMag;
+                    const float ps = (rho - 1.0f) * cs2;
+                    const float pressScale = (uInlet > 0.001f) ? (1.0f / (uInlet * uInlet)) : 100.0f;
+                    if (vizMode == VELOCITY) visualizationSource[idx] = vMag;
+                    else if (vizMode == PRESSURE) visualizationSource[idx] = 0.5f + ps * pressScale;
+                    else {
+                        // Total Pressure: Static + Dynamic Pressure.
+                        float p_total = ps + 0.5f * rho * vMag2;
+                        float p_total_ambient = 0.5f * uInlet * uInlet;
+                        visualizationSource[idx] = 0.5f + (p_total - p_total_ambient) * pressScale;
+                    }
+                }
 
                 ux_f[idx] = ux; uy_f[idx] = uy;
 

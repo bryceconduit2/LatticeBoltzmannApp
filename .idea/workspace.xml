@@ -49,8 +49,10 @@
       <change beforePath="$PROJECT_DIR$/.artifacts/71ece9b1-70ed-4e88-a58c-a4c255a51b0e/implementation_plan.artifact.md" beforeDir="false" afterPath="$PROJECT_DIR$/.artifacts/71ece9b1-70ed-4e88-a58c-a4c255a51b0e/implementation_plan.artifact.md" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.artifacts/71ece9b1-70ed-4e88-a58c-a4c255a51b0e/task.artifact.md" beforeDir="false" afterPath="$PROJECT_DIR$/.artifacts/71ece9b1-70ed-4e88-a58c-a4c255a51b0e/task.artifact.md" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.gradle/9.5.0/fileHashes/fileHashes.lock" beforeDir="false" afterPath="$PROJECT_DIR$/.gradle/9.5.0/fileHashes/fileHashes.lock" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.gradle/buildOutputCleanup/cache.properties" beforeDir="false" afterPath="$PROJECT_DIR$/.gradle/buildOutputCleanup/cache.properties" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.gradle/config.properties" beforeDir="false" afterPath="$PROJECT_DIR$/.gradle/config.properties" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.gradle/file-system.probe" beforeDir="false" afterPath="$PROJECT_DIR$/.gradle/file-system.probe" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/AndroidProjectSystem.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/AndroidProjectSystem.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/androidTestResultsUserPreferences.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/androidTestResultsUserPreferences.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/caches/deviceStreaming.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/caches/deviceStreaming.xml" afterDir="false" />
@@ -72,6 +74,8 @@
       <change beforePath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/arm64-v8a/.cmake/api/v1/reply/directory-.-Debug-d0094a50bb2071803777.json" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/arm64-v8a/.cmake/api/v1/reply/directory-.-Debug-d0094a50bb2071803777.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/arm64-v8a/.cmake/api/v1/reply/index-2026-08-05T13-34-40-0315.json" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/arm64-v8a/.cmake/api/v1/reply/index-2026-08-05T13-34-40-0315.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/arm64-v8a/.cmake/api/v1/reply/target-fluidsandbox-Debug-7364a993e8619b10e22e.json" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/arm64-v8a/.cmake/api/v1/reply/target-fluidsandbox-Debug-7364a993e8619b10e22e.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/arm64-v8a/.ninja_deps" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/arm64-v8a/.ninja_deps" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/arm64-v8a/.ninja_log" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/arm64-v8a/.ninja_log" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/arm64-v8a/CMakeCache.txt" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/arm64-v8a/CMakeCache.txt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/arm64-v8a/CMakeFiles/3.22.1-g37088a8-dirty/CMakeCCompiler.cmake" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/arm64-v8a/CMakeFiles/3.22.1-g37088a8-dirty/CMakeCCompiler.cmake" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/arm64-v8a/CMakeFiles/3.22.1-g37088a8-dirty/CMakeCXXCompiler.cmake" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/arm64-v8a/CMakeFiles/3.22.1-g37088a8-dirty/CMakeCXXCompiler.cmake" afterDir="false" />
@@ -84,6 +88,7 @@
       <change beforePath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/arm64-v8a/CMakeFiles/FindOpenMP/OpenMPTryFlag.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/arm64-v8a/CMakeFiles/FindOpenMP/OpenMPTryFlag.cpp" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/arm64-v8a/CMakeFiles/TargetDirectories.txt" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/arm64-v8a/CMakeFiles/TargetDirectories.txt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/arm64-v8a/CMakeFiles/cmake.check_cache" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/arm64-v8a/CMakeFiles/cmake.check_cache" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/arm64-v8a/CMakeFiles/fluidsandbox.dir/lbm_engine.cpp.o" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/arm64-v8a/CMakeFiles/fluidsandbox.dir/lbm_engine.cpp.o" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/arm64-v8a/CMakeFiles/rules.ninja" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/arm64-v8a/CMakeFiles/rules.ninja" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/arm64-v8a/build.ninja" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/arm64-v8a/build.ninja" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/arm64-v8a/cmake_install.cmake" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/arm64-v8a/cmake_install.cmake" afterDir="false" />
@@ -94,6 +99,8 @@
       <change beforePath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/x86_64/.cmake/api/v1/reply/directory-.-Debug-d0094a50bb2071803777.json" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/x86_64/.cmake/api/v1/reply/directory-.-Debug-d0094a50bb2071803777.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/x86_64/.cmake/api/v1/reply/index-2026-08-05T13-37-05-0175.json" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/x86_64/.cmake/api/v1/reply/index-2026-08-05T13-37-05-0175.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/x86_64/.cmake/api/v1/reply/target-fluidsandbox-Debug-449b49a7ccdf8afe8951.json" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/x86_64/.cmake/api/v1/reply/target-fluidsandbox-Debug-449b49a7ccdf8afe8951.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/x86_64/.ninja_deps" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/x86_64/.ninja_deps" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/x86_64/.ninja_log" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/x86_64/.ninja_log" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/x86_64/CMakeCache.txt" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/x86_64/CMakeCache.txt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/x86_64/CMakeFiles/3.22.1-g37088a8-dirty/CMakeCCompiler.cmake" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/x86_64/CMakeFiles/3.22.1-g37088a8-dirty/CMakeCCompiler.cmake" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/x86_64/CMakeFiles/3.22.1-g37088a8-dirty/CMakeCXXCompiler.cmake" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/x86_64/CMakeFiles/3.22.1-g37088a8-dirty/CMakeCXXCompiler.cmake" afterDir="false" />
@@ -106,6 +113,7 @@
       <change beforePath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/x86_64/CMakeFiles/FindOpenMP/OpenMPTryFlag.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/x86_64/CMakeFiles/FindOpenMP/OpenMPTryFlag.cpp" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/x86_64/CMakeFiles/TargetDirectories.txt" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/x86_64/CMakeFiles/TargetDirectories.txt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/x86_64/CMakeFiles/cmake.check_cache" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/x86_64/CMakeFiles/cmake.check_cache" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/x86_64/CMakeFiles/fluidsandbox.dir/lbm_engine.cpp.o" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/x86_64/CMakeFiles/fluidsandbox.dir/lbm_engine.cpp.o" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/x86_64/CMakeFiles/rules.ninja" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/x86_64/CMakeFiles/rules.ninja" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/x86_64/build.ninja" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/x86_64/build.ninja" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/x86_64/cmake_install.cmake" beforeDir="false" afterPath="$PROJECT_DIR$/app/.cxx/Debug/17w606e2/x86_64/cmake_install.cmake" afterDir="false" />
@@ -433,12 +441,12 @@
         </entry>
         <entry key="com.bc.fluidsandbox">
           <value>
-            <CheckInfo lastCheckTimestamp="1786958635187" />
+            <CheckInfo lastCheckTimestamp="1787069871984" />
           </value>
         </entry>
         <entry key="com.bc.fluidsandbox.test">
           <value>
-            <CheckInfo lastCheckTimestamp="1786958635187" />
+            <CheckInfo lastCheckTimestamp="1787069872193" />
           </value>
         </entry>
       </map>
