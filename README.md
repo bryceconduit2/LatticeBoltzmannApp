@@ -12,6 +12,12 @@
 * **Physics Engine:** Built using WALE subgrid-scale turbulence modeling, BFL interpolated boundaries, and momentum exchange force integration.
 * **Performance & Customization:** Tweak grid resolution, physics precision (dt), and multi-core CPU usage for maximum frame rate.
 
+# Screenshots:
+![Screenshot1](docs/images/LatticeBoltzmann1.jpg)
+![Screenshot2](docs/images/LatticeBoltzmann2.jpg)
+![Screenshot3](docs/images/LatticeBoltzmann3.jpg)
+
+
 ---
 
 ## Privacy & Offline Operation
