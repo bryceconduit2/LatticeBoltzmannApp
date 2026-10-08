@@ -50,7 +50,7 @@ class WindTunnelView @JvmOverloads constructor(
     private var currentRadius = 8
     private var persistentObjectRadius = 8
     private var hasActiveObject = false
-    private val maxRadius = 120 // Max growth limit to prevent blocking the entire tunnel
+    private val maxRadius: Int get() = (simHeight * 0.38f).toInt().coerceAtLeast(15) // Max growth limit to prevent blocking the entire tunnel
 
     private var lastNacaSimX = -1f
     private var lastNacaSimY = -1f
@@ -105,7 +105,7 @@ class WindTunnelView @JvmOverloads constructor(
 
     // --- HUD & Overlay Paints ---
     private val textPaint = Paint().apply {
-        color = Color.WHITE
+        color = Color.GRAY
         textSize = spToPx(14f)
         isAntiAlias = true
         setShadowLayer(3f, 1f, 1f, Color.BLACK)
@@ -140,7 +140,7 @@ class WindTunnelView @JvmOverloads constructor(
     }
 
     private val scaleTextPaint = Paint().apply {
-        color = Color.WHITE
+        color = Color.GRAY
         textSize = spToPx(12f)
         isAntiAlias = true
         textAlign = Paint.Align.CENTER

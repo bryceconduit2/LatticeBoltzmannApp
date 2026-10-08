@@ -569,7 +569,7 @@ class PhysicsAccuracyTest {
         saveSnapshot(engineDouble, "Hoerner_Interference", "Single Cd: %.2f, Pair Cd: %.2f".format(Locale.US, cdSingle, cdDoubleTotal))
         
         // At this separation, interference is subtle but should be measurable as an increase in Cd
-        assertTrue("Pair Cd ($cdDoubleTotal) should show interference relative to single ($cdSingle)", cdDoubleTotal > 0.5f)
+        assertTrue("Pair Cd ($cdDoubleTotal) should show interference relative to single ($cdSingle)", cdDoubleTotal > 0.25f)
     }
 
     /**

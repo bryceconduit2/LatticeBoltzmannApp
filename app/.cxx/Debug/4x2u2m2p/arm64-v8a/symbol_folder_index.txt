@@ -1,0 +1,1 @@
+C:\Users\bryce\StudioProjects\LatticeBoltzmannApp\app\build\intermediates\cxx\Debug\4x2u2m2p\obj\arm64-v8a

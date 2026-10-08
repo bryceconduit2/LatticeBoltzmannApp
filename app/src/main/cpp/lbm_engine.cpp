@@ -263,10 +263,11 @@ struct LBMEngine {
                     // without any artificial pressure boundary or energy absorption.
                     const int prev = idx - 1;
                     float rho_p = f_ptr[0][prev] + f_ptr[1][prev] + f_ptr[2][prev] + f_ptr[3][prev] + f_ptr[4][prev] + f_ptr[5][prev] + f_ptr[6][prev] + f_ptr[7][prev] + f_ptr[8][prev];
-                    float invRhoP = 1.0f / fmaxf(0.1f, rho_p);
+                    rho_p = fmaxf(0.3f, fminf(2.0f, rho_p));
+                    float invRhoP = 1.0f / rho_p;
                     float ux_p = (f_ptr[1][prev] - f_ptr[3][prev] + f_ptr[5][prev] - f_ptr[6][prev] - f_ptr[7][prev] + f_ptr[8][prev]) * invRhoP;
                     float uy_p = (f_ptr[2][prev] - f_ptr[4][prev] + f_ptr[5][prev] + f_ptr[6][prev] - f_ptr[7][prev] - f_ptr[8][prev]) * invRhoP;
-                    float u2sq_p = 1.5f * (ux_p * ux_p + uy_p * uy_p);
+                    float u2sq_p = 1.5f * fminf(0.1225f, ux_p * ux_p + uy_p * uy_p);
 
                     for (int i = 0; i < 9; i++) {
                         float cu_p = 3.0f * (cxs[i] * ux_p + cys[i] * uy_p);
@@ -289,11 +290,12 @@ struct LBMEngine {
                                 int idx_n = ny_n * width + x;
 
                                 float rho_n = f_ptr[0][idx_n] + f_ptr[1][idx_n] + f_ptr[2][idx_n] + f_ptr[3][idx_n] + f_ptr[4][idx_n] + f_ptr[5][idx_n] + f_ptr[6][idx_n] + f_ptr[7][idx_n] + f_ptr[8][idx_n];
-                                float invRhoN = 1.0f / fmaxf(0.1f, rho_n);
+                                rho_n = fmaxf(0.3f, fminf(2.0f, rho_n));
+                                float invRhoN = 1.0f / rho_n;
                                 float ux_n = (f_ptr[1][idx_n] - f_ptr[3][idx_n] + f_ptr[5][idx_n] - f_ptr[6][idx_n] - f_ptr[7][idx_n] + f_ptr[8][idx_n]) * invRhoN;
                                 float uy_n = (f_ptr[2][idx_n] - f_ptr[4][idx_n] + f_ptr[5][idx_n] + f_ptr[6][idx_n] - f_ptr[7][idx_n] - f_ptr[8][idx_n]) * invRhoN;
 
-                                float u2sq_n = 1.5f * (ux_n * ux_n + uy_n * uy_n);
+                                float u2sq_n = 1.5f * fminf(0.1225f, ux_n * ux_n + uy_n * uy_n);
                                 float cu_n = 3.0f * (cxs[i] * ux_n + cys[i] * uy_n);
                                 float feq_n = weights[i] * rho_n * (1.0f + cu_n + 0.5f * cu_n * cu_n - u2sq_n);
 
@@ -333,20 +335,25 @@ struct LBMEngine {
 
                 // 1. Calculate Hydrodynamic Moments (Density and Momentum)
                 const float rho = local_f[0] + local_f[1] + local_f[2] + local_f[3] + local_f[4] + local_f[5] + local_f[6] + local_f[7] + local_f[8];
-                const float invRho = 1.0f / fmaxf(0.1f, rho);
+                float rho_safe = rho;
+                if (!std::isfinite(rho_safe) || rho_safe < 0.2f || rho_safe > 2.5f) {
+                    rho_safe = fmaxf(0.3f, fminf(2.0f, rho_safe));
+                    if (!std::isfinite(rho_safe)) rho_safe = 1.0f;
+                }
+                const float invRho = 1.0f / rho_safe;
                 const float jx = local_f[1] - local_f[3] + local_f[5] - local_f[6] - local_f[7] + local_f[8];
                 const float jy = local_f[2] - local_f[4] + local_f[5] + local_f[6] - local_f[7] - local_f[8];
                 float ux = jx * invRho;
                 float uy = jy * invRho;
                 float vMag2 = ux * ux + uy * uy;
-                // Velocity limiter for extreme stability at Mach numbers > 0.4
-                if (vMag2 > 0.2025f) { float s = 0.45f / sqrtf(vMag2); ux *= s; uy *= s; vMag2 = 0.2025f; }
+                // Velocity limiter for extreme stability under high blockage / high airspeed (Mach < 0.4)
+                if (vMag2 > 0.1225f) { float s = 0.35f / sqrtf(vMag2); ux *= s; uy *= s; vMag2 = 0.1225f; }
 
                 // 2. Multi-Relaxation Time (MRT) Collision
                 // Forward Transformation: Dist (f) -> Moment (m) Space
                 // d'Humieres basis for D2Q9
                 float m[9];
-                m[0] = rho;
+                m[0] = rho_safe;
                 m[1] = -4.0f*local_f[0] - (local_f[1]+local_f[2]+local_f[3]+local_f[4]) + 2.0f*(local_f[5]+local_f[6]+local_f[7]+local_f[8]);
                 m[2] = 4.0f*local_f[0] - 2.0f*(local_f[1]+local_f[2]+local_f[3]+local_f[4]) + (local_f[5]+local_f[6]+local_f[7]+local_f[8]);
                 m[3] = jx;
@@ -358,10 +365,10 @@ struct LBMEngine {
 
                 // Equilibrium Moments (m_eq)
                 float m_eq[9];
-                float r_u2 = rho * vMag2;
-                m_eq[0] = rho;
-                m_eq[1] = -2.0f*rho + 3.0f*r_u2;
-                m_eq[2] = rho - 3.0f*r_u2;
+                float r_u2 = rho_safe * vMag2;
+                m_eq[0] = rho_safe;
+                m_eq[1] = -2.0f*rho_safe + 3.0f*r_u2;
+                m_eq[2] = rho_safe - 3.0f*r_u2;
                 m_eq[3] = jx; m_eq[4] = -jx; m_eq[5] = jy; m_eq[6] = -jy;
                 m_eq[7] = (jx*jx - jy*jy) * invRho;
                 m_eq[8] = jx * jy * invRho;
@@ -373,7 +380,7 @@ struct LBMEngine {
                     float g12 = (ux_f[idx + width] - ux_f[idx - width]) * 0.5f;
                     float g21 = (uy_f[idx + 1] - uy_f[idx - 1]) * 0.5f;
                     float g22 = (uy_f[idx + width] - uy_f[idx - width]) * 0.5f;
-                      float sd11 = g11 * g11 + g12 * g21; float sd22 = g21 * g12 + g22 * g22;
+                    float sd11 = g11 * g11 + g12 * g21; float sd22 = g21 * g12 + g22 * g22;
                     float sd12 = 0.5f * (g11 * g12 + g12 * g22 + g21 * g11 + g22 * g21);
                     float trSd = sd11 + sd22; float Sd11 = sd11 - 0.5f * trSd; float Sd22 = sd22 - 0.5f * trSd;
                     float Sd2 = Sd11 * Sd11 + Sd22 * Sd22 + 2.0f * sd12 * sd12;
@@ -384,6 +391,8 @@ struct LBMEngine {
                         float s2_25 = S2 * S2 * sqrtf(S2);
                         float sd2_125 = Sd2 * sqrtf(sqrtf(Sd2));
                         nu_t = (cw * cw) * sd2_15 / (s2_25 + sd2_125);
+                        if (!std::isfinite(nu_t)) nu_t = 0.0f;
+                        else nu_t = fminf(0.5f, fmaxf(0.0f, nu_t));
                     }
                 }
                 const float s_shear = 1.0f / fmaxf(tau_0 + 3.0f * nu_t, 0.505f);
@@ -409,19 +418,10 @@ struct LBMEngine {
                 fn_ptr[7][idx] = (1.0f/9.0f) * m[0] + (1.0f/18.0f) * m[1] + (1.0f/36.0f) * m[2] - (1.0f/6.0f) * m[3] - (1.0f/12.0f) * m[4] - (1.0f/6.0f) * m[5] - (1.0f/12.0f) * m[6] + (1.0f/4.0f) * m[8];
                 fn_ptr[8][idx] = (1.0f/9.0f) * m[0] + (1.0f/18.0f) * m[1] + (1.0f/36.0f) * m[2] + (1.0f/6.0f) * m[3] + (1.0f/12.0f) * m[4] - (1.0f/6.0f) * m[5] - (1.0f/12.0f) * m[6] - (1.0f/4.0f) * m[8];
 
-                ux_f[idx] = ux; uy_f[idx] = uy;
-
-                if (updateViz) {
-                    float vMag = sqrtf(vMag2); velocityMag[idx] = vMag;
-                    const float ps = (rho - 1.0f) * cs2;
-                    const float pressScale = (uInlet > 0.001f) ? (1.0f / (uInlet * uInlet)) : 100.0f;
-                    if (vizMode == VELOCITY) visualizationSource[idx] = vMag;
-                    else if (vizMode == PRESSURE) visualizationSource[idx] = 0.5f + ps * pressScale;
-                    else {
-                        // Total Pressure: Static + Dynamic Pressure.
-                        float p_total = ps + 0.5f * rho * vMag2;
-                        float p_total_ambient = 0.5f * uInlet * uInlet;
-                        visualizationSource[idx] = 0.5f + (p_total - p_total_ambient) * pressScale;
+                // Positivity & Positivity-Preserving Safeguards
+                for (int i = 0; i < 9; i++) {
+                    if (!std::isfinite(fn_ptr[i][idx]) || fn_ptr[i][idx] < 1e-7f) {
+                        fn_ptr[i][idx] = weights[i] * rho_safe;
                     }
                 }
 
@@ -429,14 +429,14 @@ struct LBMEngine {
 
                 if (updateViz) {
                     float vMag = sqrtf(vMag2); velocityMag[idx] = vMag;
-                    const float ps = (rho - 1.0f) * cs2;
+                    const float ps = (rho_safe - 1.0f) * cs2;
                     const float pressScale = (uInlet > 0.001f) ? (1.0f / (uInlet * uInlet)) : 100.0f;
                     if (vizMode == VELOCITY) visualizationSource[idx] = vMag;
                     else if (vizMode == PRESSURE) visualizationSource[idx] = 0.5f + ps * pressScale;
                     else {
                         // Total Pressure: Static + Dynamic Pressure.
                         // We subtract the ambient total pressure (0.5 * uInlet^2) to center the map on 0.5.
-                        float p_total = ps + 0.5f * rho * vMag2;
+                        float p_total = ps + 0.5f * rho_safe * vMag2;
                         float p_total_ambient = 0.5f * uInlet * uInlet;
                         visualizationSource[idx] = 0.5f + (p_total - p_total_ambient) * pressScale;
                     }
@@ -491,7 +491,8 @@ struct LBMEngine {
                 float cu_n = 3.0f * (cxs[i] * ux_n + cys[i] * uy_n);
                 float feq_o = weights[i] * rho * (1.0f + cu_o + 0.5f * cu_o * cu_o - u2sq_o);
                 float feq_n = weights[i] * rho * (1.0f + cu_n + 0.5f * cu_n * cu_n - u2sq_n);
-                f[i][idx] = feq_n + (f[i][idx] - feq_o);
+                float newVal = feq_n + (f[i][idx] - feq_o);
+                f[i][idx] = fmaxf(1e-7f, std::isfinite(newVal) ? newVal : (weights[i] * rho));
                 fNew[i][idx] = f[i][idx];
             }
         }
@@ -846,7 +847,7 @@ extern "C" JNIEXPORT void JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_reset
 extern "C" JNIEXPORT void JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_setInletVelocityNative(JNIEnv *env, jobject thiz, jlong ptr, jfloat v) {
     auto* e = reinterpret_cast<LBMEngine*>(ptr);
     float uL = v * e->dt / e->dx;
-    e->uInletTarget = fmaxf(0.0f, fminf(0.45f, uL));
+    e->uInletTarget = fmaxf(0.0f, fminf(0.22f, uL));
 }
 
 extern "C" JNIEXPORT jfloat JNICALL Java_com_bc_fluidsandbox_NativeLBMEngine_getInletVelocityNative(JNIEnv *env, jobject thiz, jlong ptr) {

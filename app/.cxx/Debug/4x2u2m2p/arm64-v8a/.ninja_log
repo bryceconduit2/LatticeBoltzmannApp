@@ -1,0 +1,5 @@
+# ninja log v5
+5	2781	8131475767747551	CMakeFiles/fluidsandbox.dir/lbm_engine.cpp.o	b9ef03679c69216c
+2787	3116	8131475771106340	C:/Users/bryce/StudioProjects/LatticeBoltzmannApp/app/build/intermediates/cxx/Debug/4x2u2m2p/obj/arm64-v8a/libfluidsandbox.so	7644799791ee1955
+6	1687	8131498713915225	CMakeFiles/fluidsandbox.dir/lbm_engine.cpp.o	b9ef03679c69216c
+1688	1882	8131498715889555	C:/Users/bryce/StudioProjects/LatticeBoltzmannApp/app/build/intermediates/cxx/Debug/4x2u2m2p/obj/arm64-v8a/libfluidsandbox.so	7644799791ee1955
